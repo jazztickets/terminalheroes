@@ -2,13 +2,17 @@
 import curses
 import threading
 import time
+import random
+import sys
 
 class Game:
 	done = 0
+	ready = 0
 	dps = 1
 	gold = 0
 	level = 1
 	health = 0
+	upgrade_cost = 10
 	max_health = 0
 	size_x = 55
 	size_y = 25
@@ -35,7 +39,12 @@ class Game:
 				(max_y, max_x) = screen.getmaxyx()
 			elif c == 10:
 				pass
-			elif c == ord('1'):
+			elif c == ord('u'):
+				if self.gold >= self.upgrade_cost:
+					self.gold -= self.upgrade_cost
+					self.upgrade_cost *= 1.2
+					self.upgrade_cost = int(self.upgrade_cost)
+					self.dps += 1
 				pass
 			elif c == ord('q'):
 				self.done = 1
@@ -43,45 +52,26 @@ class Game:
 			elif c != -1:
 				self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
 
+			game.draw()
 			self.win_command.noutrefresh()
 			curses.doupdate()
 
 	def draw(self):
-		self.win_game.noutrefresh()
-		self.win_command.noutrefresh()
-		curses.doupdate()
-
-	def init_level(self):
-		self.max_health = self.level * 5
-		self.health = self.max_health
-
-	def update(self):
-		self.health -= self.dps;
-		if self.health <= 0:
-			self.level += 1
-			self.gold += self.level
-			self.init_level()
-
-game = Game()
-
-def update_loop():
-
-	while not game.done:
 		game.win_game.erase()
 		game.win_game.border(0, 0, 0, 0, 0, 0, 0, 0)
-		row = 2
 
 		# draw level
+		row = 2
 		string = "Level: " + str(game.level)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
 
 		# draw health
 		row += 1
-		string = "Health: " + str(game.health)
+		string = "Enemy Health: " + str(game.health)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
 
 		# draw dps
-		row += 1
+		row += 2
 		string = "DPS: " + str(game.dps)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
 
@@ -90,9 +80,46 @@ def update_loop():
 		string = "Gold: " + str(game.gold)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
 
-		game.draw()
-		game.update()
-		time.sleep(1)
+		# draw upgrade cost
+		row += 1
+		string = "Upgrade DPS Cost: " + str(game.upgrade_cost)
+		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+
+		self.win_game.noutrefresh()
+		self.win_command.noutrefresh()
+		curses.doupdate()
+
+	def init_level(self):
+		self.max_health = self.level * 5
+		self.health = self.max_health
+		self.ready = 1
+
+	def update_health(self):
+		if self.health <= 0:
+			self.level += 1
+			self.update_reward()
+			self.init_level()
+
+	def update_reward(self):
+		bonus = 0
+		if random.randint(0, 9) == 0:
+			bonus = 10
+			
+		self.gold += self.level + bonus
+
+	def update(self):
+		self.health -= self.dps
+		self.update_health()
+
+game = Game()
+
+def update_loop():
+
+	while not game.done:
+		if game.ready:
+			game.update()
+			game.draw()
+			time.sleep(1)
 
 update_thread = threading.Thread(target=update_loop)
 update_thread.daemon = True
