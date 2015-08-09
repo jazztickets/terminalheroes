@@ -3,7 +3,6 @@ import curses
 import threading
 import time
 import random
-import sys
 
 class Game:
 	done = 0
@@ -14,8 +13,10 @@ class Game:
 	health = 0
 	upgrade_cost = 10
 	max_health = 0
+	update_time = 0.1
 	size_x = 55
 	size_y = 25
+	message_size_y = 2
 	screen = None
 
 	def __init__(self):
@@ -24,11 +25,13 @@ class Game:
 		curses.noecho()
 		(self.max_y, self.max_x) = self.screen.getmaxyx()
 		self.win_game = curses.newwin(self.size_y, self.size_x, int(self.max_y/2 - self.size_y/2), int(self.max_x/2 - self.size_x/2))
-		self.win_command = curses.newwin(3, self.size_x)
+		self.win_command = curses.newwin(self.message_size_y, self.max_x)
+		self.win_message = curses.newwin(self.message_size_y, self.max_x, int(self.max_y - self.message_size_y), 0)
 	
 	def start(self):
 		
-		self.win_command.addstr(0, 0, "q: quit u: upgrade")
+		self.win_command.addstr(0, 0, "q: quit u: upgrade p: powerup")
+		self.win_message.addstr(0, 0, "Test message")
 		self.win_command.noutrefresh()
 		curses.doupdate()
 
@@ -49,7 +52,10 @@ class Game:
 			elif c == ord('q'):
 				self.done = 1
 				break
-			elif c != -1:
+			elif c == ord('p'):
+				pass
+
+			if c != -1:
 				self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
 
 			game.draw()
@@ -87,6 +93,7 @@ class Game:
 
 		self.win_game.noutrefresh()
 		self.win_command.noutrefresh()
+		self.win_message.noutrefresh()
 		curses.doupdate()
 
 	def init_level(self):
@@ -102,7 +109,9 @@ class Game:
 
 	def update_reward(self):
 		bonus = 0
+		self.win_message.erase()
 		if random.randint(0, 9) == 0:
+			self.win_message.addstr(0, 0, "Bonus Gold!")
 			bonus = 10
 			
 		self.gold += self.level + bonus
@@ -119,7 +128,7 @@ def update_loop():
 		if game.ready:
 			game.update()
 			game.draw()
-			time.sleep(1)
+			time.sleep(game.update_time)
 
 update_thread = threading.Thread(target=update_loop)
 update_thread.daemon = True
