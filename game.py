@@ -24,6 +24,7 @@ class State:
 		self.version = version
 		self.dps = Upgrade(1.0, 10, 1.2)
 		self.dps_increase = Upgrade(1.0, 100, 1.2)
+		self.rebirth = Upgrade(0, 10000, 2.5)
 		self.update_time = 1.0
 		self.gold = 0
 		self.gold_multiplier = 1
@@ -37,7 +38,7 @@ class State:
 class Game:
 
 	def __init__(self):
-		self.save_file = "game.sav"
+		self.save_file = "save.dat"
 		self.version = 1
 		self.done = 0
 		self.ready = 0
@@ -66,7 +67,7 @@ class Game:
 		self.state.version = self.version
 		self.load()
 
-		self.win_command.addstr(0, 0, "q: quit ^X: new game u: upgrade dps i: upgrade dps increase")
+		self.win_command.addstr(0, 0, "q: quit ^X: new game u: upgrade dps i: upgrade dps increase r: rebirth")
 		self.win_command.noutrefresh()
 		curses.doupdate()
 
@@ -81,13 +82,19 @@ class Game:
 			elif c == 24:
 				self.state = State(self.version)
 				self.init_level()
+			elif c == ord('r'):
+				if self.state.gold >= self.state.rebirth.cost:
+					self.state.rebirth.buy(1)
+					dps_increase = self.state.dps_increase.value
+					rebirth = self.state.rebirth
+					self.state = State(self.version)
+					self.state.dps_increase.value = dps_increase
+					self.state.rebirth = rebirth
+					self.init_level()
 			elif c == ord('u'):
 				if self.state.gold >= self.state.dps.cost:
 					self.state.gold -= self.state.dps.cost
 					self.state.dps.buy(self.state.dps_increase.value)
-				else:
-					self.set_status("Not enough gold!")
-				pass
 			elif c == ord('2'):
 				self.state.update_time = 1.0
 			elif c == ord('1'):
@@ -96,8 +103,6 @@ class Game:
 				if self.state.gold >= self.state.dps_increase.cost:
 					self.state.gold -= self.state.dps_increase.cost
 					self.state.dps_increase.buy(self.state.dps_increase_amount)
-				else:
-					self.set_status("Not enough gold!")
 			elif c == ord('q') or c == 27:
 				self.save()
 				self.done = 1
@@ -172,6 +177,19 @@ class Game:
 		if state.gold >= state.dps_increase.cost:
 			color = 2
 		string = "Upgrade DPS Increase Cost: " + str(state.dps_increase.cost)
+		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string, curses.color_pair(color))
+
+		# draw rebirths
+		row += 2
+		string = "Rebirths: " + str(state.rebirth.value)
+		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+
+		# draw rebirth cost
+		row += 1
+		color = 1
+		if state.gold >= state.rebirth.cost:
+			color = 2
+		string = "Rebirth Cost: " + str(state.rebirth.cost)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string, curses.color_pair(color))
 
 		self.win_game.noutrefresh()
