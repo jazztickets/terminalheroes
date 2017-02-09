@@ -8,17 +8,22 @@ import sys
 import pickle
 
 class Upgrade:
+
 	def __init__(self, value, cost, cost_multiplier):
 		self.value = value
 		self.cost = cost
 		self.cost_multiplier = cost_multiplier
 
+	def buy(self, amount):
+		self.cost = int(self.cost * self.cost_multiplier)
+		self.value += amount
+
 class State:
+
 	def __init__(self, version):
 		self.version = version
 		self.dps = Upgrade(1.0, 10, 1.2)
 		self.dps_increase = Upgrade(1.0, 100, 1.2)
-		self.version = 0
 		self.update_time = 1.0
 		self.gold = 0
 		self.gold_multiplier = 1
@@ -79,8 +84,7 @@ class Game:
 			elif c == ord('u'):
 				if self.state.gold >= self.state.dps.cost:
 					self.state.gold -= self.state.dps.cost
-					self.state.dps.cost = int(self.state.dps.cost * self.state.dps.cost_multiplier)
-					self.state.dps.value += self.state.dps_increase.value
+					self.state.dps.buy(self.state.dps_increase.value)
 				else:
 					self.set_status("Not enough gold!")
 				pass
@@ -91,8 +95,7 @@ class Game:
 			elif c == ord('i'):
 				if self.state.gold >= self.state.dps_increase.cost:
 					self.state.gold -= self.state.dps_increase.cost
-					self.state.dps_increase.cost = int(self.state.dps_increase.cost * self.state.dps_increase.cost_multiplier)
-					self.state.dps_increase.value += self.state.dps_increase_amount
+					self.state.dps_increase.buy(self.state.dps_increase_amount)
 				else:
 					self.set_status("Not enough gold!")
 			elif c == ord('q') or c == 27:
