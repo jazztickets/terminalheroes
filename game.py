@@ -4,6 +4,8 @@ import threading
 import time
 import math
 import random
+import sys
+import pickle
 
 class State:
 	update_time = 1.0
@@ -25,6 +27,7 @@ class State:
 
 class Game:
 
+	save_file = "game.sav"
 	done = 0
 	ready = 0
 	size_x = 55
@@ -49,8 +52,9 @@ class Game:
 		curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_RED)
 
 	def start(self):
+		self.load()
 
-		self.win_command.addstr(0, 0, "q: quit u: upgrade dps i: upgrade dps increase")
+		self.win_command.addstr(0, 0, "q: quit x: new game u: upgrade dps i: upgrade dps increase")
 		self.win_command.noutrefresh()
 		curses.doupdate()
 
@@ -61,6 +65,9 @@ class Game:
 				(max_y, max_x) = screen.getmaxyx()
 			elif c == 10:
 				pass
+			elif c == ord('^x'):
+				self.state = State()
+				self.init_level()
 			elif c == ord('u'):
 				if self.state.gold >= self.state.upgrade_cost:
 					self.state.gold -= self.state.upgrade_cost
@@ -77,11 +84,12 @@ class Game:
 				else:
 					self.set_status("Not enough gold!")
 			elif c == ord('q'):
+				self.save()
 				self.done = 1
 				break
 
-			#if c != -1:
-			#	self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
+			if c != -1:
+				self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
 
 			game.draw()
 			self.win_command.noutrefresh()
@@ -114,12 +122,12 @@ class Game:
 		string = "DPS: " + str(round(state.dps, 2))
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
 
-		#  draw dps increase
+		# draw dps increase
 		row += 1
 		string = "DPS Increase: " + str(state.dps_increase)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
 
-		#  draw dps increase amount
+		# draw dps increase amount
 		row += 1
 		string = "DPS Increase Amount: " + str(state.dps_increase_amount)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
@@ -191,6 +199,17 @@ class Game:
 	def update(self):
 		self.state.health -= self.state.dps
 		self.update_health()
+
+	def load(self):
+		try:
+			with open(game.save_file, 'rb') as f:
+				self.state = pickle.load(f)
+		except:
+			return
+
+	def save(self):
+		with open(game.save_file, 'wb') as f:
+			pickle.dump(self.state, f)
 
 game = Game()
 
