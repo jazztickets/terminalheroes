@@ -7,37 +7,42 @@ import random
 import sys
 import pickle
 
-class State:
-	update_time = 1.0
-	#update_time = 0.1
-	gold = 0
-	gold_multiplier = 1
-	level = 1
-	health = 0
-	max_health = 0
-	health_multiplier = 3
-	health_increase_exponent = 1.6
+class Upgrade:
+	def __init__(self, value, cost, cost_multiplier):
+		self.value = value
+		self.cost = cost
+		self.cost_multiplier = cost_multiplier
 
-	dps = 1
-	upgrade_cost_increase = 1.2
-	upgrade_cost = 10
-	upgrade_dps_increase_cost = 100
-	dps_increase = 1.0
-	dps_increase_amount = 1.0
+class State:
+	def __init__(self, version):
+		self.version = version
+		self.dps = Upgrade(1.0, 10, 1.2)
+		self.dps_increase = Upgrade(1.0, 100, 1.2)
+		self.version = 0
+		self.update_time = 1.0
+		self.gold = 0
+		self.gold_multiplier = 1
+		self.level = 1
+		self.health = 0
+		self.max_health = 0
+		self.health_multiplier = 3
+		self.health_increase_exponent = 1.6
+		self.dps_increase_amount = 1.0
 
 class Game:
 
-	save_file = "game.sav"
-	done = 0
-	ready = 0
-	size_x = 55
-	size_y = 25
-	message_size_y = 2
-	health_width = 30
-	screen = None
-	state = State()
-
 	def __init__(self):
+		self.save_file = "game.sav"
+		self.version = 1
+		self.done = 0
+		self.ready = 0
+		self.size_x = 55
+		self.size_y = 25
+		self.message_size_y = 2
+		self.health_width = 30
+		self.screen = None
+		self.state = None
+
 		self.screen = curses.initscr()
 		curses.start_color()
 		curses.curs_set(0)
@@ -52,6 +57,8 @@ class Game:
 		curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_RED)
 
 	def start(self):
+		self.state = State(self.version)
+		self.state.version = self.version
 		self.load()
 
 		self.win_command.addstr(0, 0, "q: quit ^X: new game u: upgrade dps i: upgrade dps increase")
@@ -67,30 +74,35 @@ class Game:
 				pass
 			# ^X
 			elif c == 24:
-				self.state = State()
+				self.state = State(self.version)
 				self.init_level()
 			elif c == ord('u'):
-				if self.state.gold >= self.state.upgrade_cost:
-					self.state.gold -= self.state.upgrade_cost
-					self.state.upgrade_cost = int(self.state.upgrade_cost * self.state.upgrade_cost_increase)
-					self.state.dps += self.state.dps_increase
+				if self.state.gold >= self.state.dps.cost:
+					self.state.gold -= self.state.dps.cost
+					self.state.dps.cost = int(self.state.dps.cost * self.state.dps.cost_multiplier)
+					self.state.dps.value += self.state.dps_increase.value
 				else:
 					self.set_status("Not enough gold!")
 				pass
+			elif c == ord('2'):
+				self.state.update_time = 1.0
+			elif c == ord('1'):
+				self.state.update_time = 0.1
 			elif c == ord('i'):
-				if self.state.gold >= self.state.upgrade_dps_increase_cost:
-					self.state.gold -= self.state.upgrade_dps_increase_cost
-					self.state.upgrade_dps_increase_cost = int(self.state.upgrade_dps_increase_cost * self.state.upgrade_cost_increase)
-					self.state.dps_increase += self.state.dps_increase_amount
+				if self.state.gold >= self.state.dps_increase.cost:
+					self.state.gold -= self.state.dps_increase.cost
+					self.state.dps_increase.cost = int(self.state.dps_increase.cost * self.state.dps_increase.cost_multiplier)
+					self.state.dps_increase.value += self.state.dps_increase_amount
 				else:
 					self.set_status("Not enough gold!")
-			elif c == ord('q'):
+			elif c == ord('q') or c == 27:
 				self.save()
 				self.done = 1
 				break
 
-			if c != -1:
-				self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
+			#if c != -1:
+			#	self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
+			#	self.win_command.addstr(1, 0, "Command: " + str(c))
 
 			game.draw()
 			self.win_command.noutrefresh()
@@ -120,12 +132,12 @@ class Game:
 
 		# draw dps
 		row += 2
-		string = "DPS: " + str(round(state.dps, 2))
+		string = "DPS: " + str(round(state.dps.value, 2))
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
 
 		# draw dps increase
 		row += 1
-		string = "DPS Increase: " + str(state.dps_increase)
+		string = "DPS Increase: " + str(state.dps_increase.value)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
 
 		# draw dps increase amount
@@ -146,17 +158,17 @@ class Game:
 		# draw upgrade cost
 		row += 2
 		color = 1
-		if state.gold >= state.upgrade_cost:
+		if state.gold >= state.dps.cost:
 			color = 2
-		string = "Upgrade DPS Cost: " + str(state.upgrade_cost)
+		string = "Upgrade DPS Cost: " + str(state.dps.cost)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string, curses.color_pair(color))
 
 		# draw upgrade dps increase cost
 		row += 1
 		color = 1
-		if state.gold >= state.upgrade_dps_increase_cost:
+		if state.gold >= state.dps_increase.cost:
 			color = 2
-		string = "Upgrade DPS Increase Cost: " + str(state.upgrade_dps_increase_cost)
+		string = "Upgrade DPS Increase Cost: " + str(state.dps_increase.cost)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string, curses.color_pair(color))
 
 		self.win_game.noutrefresh()
@@ -198,7 +210,7 @@ class Game:
 		self.state.gold += total_reward
 
 	def update(self):
-		self.state.health -= self.state.dps
+		self.state.health -= self.state.dps.value
 		self.update_health()
 
 	def load(self):
@@ -208,14 +220,12 @@ class Game:
 		except:
 			return
 
-	def save(self):
-		try:
-			with open(game.save_file, 'wb') as f:
-				pickle.dump(self.state, f)
-		except:
-			return
+		if self.state.version != self.version:
+			self.state = State(self.version)
 
-game = Game()
+	def save(self):
+		with open(game.save_file, 'wb') as f:
+			pickle.dump(self.state, f)
 
 def update_loop():
 
@@ -225,6 +235,7 @@ def update_loop():
 			game.draw()
 			time.sleep(game.state.update_time)
 
+game = Game()
 update_thread = threading.Thread(target=update_loop)
 update_thread.daemon = True
 update_thread.start()
