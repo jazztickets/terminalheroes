@@ -54,7 +54,7 @@ class Game:
 	def start(self):
 		self.load()
 
-		self.win_command.addstr(0, 0, "q: quit x: new game u: upgrade dps i: upgrade dps increase")
+		self.win_command.addstr(0, 0, "q: quit ^X: new game u: upgrade dps i: upgrade dps increase")
 		self.win_command.noutrefresh()
 		curses.doupdate()
 
@@ -65,7 +65,8 @@ class Game:
 				(max_y, max_x) = screen.getmaxyx()
 			elif c == 10:
 				pass
-			elif c == ord('^x'):
+			# ^X
+			elif c == 24:
 				self.state = State()
 				self.init_level()
 			elif c == ord('u'):
@@ -208,8 +209,11 @@ class Game:
 			return
 
 	def save(self):
-		with open(game.save_file, 'wb') as f:
-			pickle.dump(self.state, f)
+		try:
+			with open(game.save_file, 'wb') as f:
+				pickle.dump(self.state, f)
+		except:
+			return
 
 game = Game()
 
