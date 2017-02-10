@@ -24,7 +24,7 @@ class State:
 		self.version = version
 		self.dps = Upgrade(1.0, 10, 1.2)
 		self.dps_increase = Upgrade(1.0, 100, 1.2)
-		self.rebirth = Upgrade(0, 10000, 2.5)
+		self.rebirth = Upgrade(0, 10000, 1.5)
 		self.update_time = 1.0
 		self.gold = 0
 		self.gold_multiplier = 1
@@ -75,7 +75,7 @@ class Game:
 		while not self.done:
 			c = self.win_command.getch()
 			if c == curses.KEY_RESIZE:
-				(max_y, max_x) = screen.getmaxyx()
+				(max_y, max_x) = self.screen.getmaxyx()
 			elif c == 10:
 				pass
 			# ^X
