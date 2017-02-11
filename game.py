@@ -103,10 +103,12 @@ class Game:
 				if self.state.gold >= self.state.dps_increase.cost:
 					self.state.gold -= self.state.dps_increase.cost
 					self.state.dps_increase.buy(self.state.dps_increase_amount)
-			elif c == ord('q') or c == 27:
+			elif c == ord('q'):
 				self.save()
 				self.done = 1
 				break
+			else:
+				pass
 
 			#if c != -1:
 			#	self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
