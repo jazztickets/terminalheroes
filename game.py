@@ -107,8 +107,6 @@ class Game:
 				self.save()
 				self.done = 1
 				break
-			else:
-				pass
 
 			#if c != -1:
 			#	self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
