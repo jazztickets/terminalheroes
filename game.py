@@ -27,26 +27,24 @@ class State:
 		self.version = version
 		self.damage = Upgrade(1.0, 5, 1.2)
 		self.damage_increase = Upgrade(1.0, 50, 1.2)
+		self.damage_increase_amount = 1.0
 		self.rate = Upgrade(1.0, 100, 1.2)
 		self.rate_increase = Upgrade(0.1, 0, 0)
-		self.rebirth = Upgrade(0, 10000, 1.1)
 		self.gold = 0
 		self.gold_multiplier = 1
 		self.gold_increase = Upgrade(0.05, 0, 0)
 		self.level = 1
-		self.attack_timer = 0
 		self.health = 0
 		self.max_health = 0
 		self.health_multiplier = 1
 		self.health_increase_exponent = 1.5
-		self.damage_increase_amount = 1.0
+		self.attack_timer = 0
+		self.rebirth = Upgrade(0, 10000, 1.1)
 
-		self.base_damage_increase = self.damage_increase.value
-		self.base_rate = self.rate.value
-
+	# calculate base stats
 	def calc(self):
-		self.damage_increase.value = self.base_damage_increase
-		self.rate.value = self.base_rate
+		self.damage.value += self.rebirth.value
+		pass
 
 class Game:
 
@@ -65,6 +63,7 @@ class Game:
 		self.max_fps = 150.0
 		self.timestep = 1 / 100.0
 		self.mode = MODE_PLAY
+		self.upgrade_values = [ 1.0, 0.05, 0.05 ]
 
 		self.screen = curses.initscr()
 		curses.start_color()
@@ -84,6 +83,7 @@ class Game:
 		self.state.version = self.version
 		self.state.calc()
 		self.load()
+		#self.state.gold = 50000
 
 		self.win_command.addstr(0, 0, "q: quit ^X: new game u: upgrade damage i: upgrade damage increase o: upgrade attack rate r: rebirth")
 		self.win_command.noutrefresh()
@@ -124,22 +124,22 @@ class Game:
 				if c == ord('r'):
 					self.mode = MODE_PLAY
 				elif c == ord('1'):
-					self.state.base_damage_increase += self.state.damage_increase_amount
+					self.state.damage_increase_amount += self.upgrade_values[0]
 					rebirth = True
 				elif c == ord('2'):
 					rebirth = True
-					self.state.base_rate += self.state.rate_increase.value
+					self.state.rate_increase.value += self.upgrade_values[1]
 				elif c == ord('3'):
 					rebirth = True
-					self.state.gold_multiplier += self.state.gold_increase.value
+					self.state.gold_multiplier += self.upgrade_values[2]
 
 				if rebirth:
 					self.state.rebirth.buy(1)
 					old_state = self.state
 					self.state = State(self.version)
 					self.state.rebirth = old_state.rebirth
-					self.state.base_damage_increase = old_state.base_damage_increase
-					self.state.base_rate = old_state.base_rate
+					self.state.damage_increase_amount = old_state.damage_increase_amount
+					self.state.rate_increase.value = old_state.rate_increase.value
 					self.state.gold_multiplier = old_state.gold_multiplier
 					self.state.calc()
 					self.init_level()
@@ -193,12 +193,12 @@ class Game:
 
 			# draw attack rate increase
 			row += 1
-			string = "Attack Rate Increase: " + str(state.rate_increase.value)
+			string = "Attack Rate Increase: " + str(round(state.rate_increase.value, 2))
 			game.win_game.addstr(row, self.get_center(string), string)
 
 			# draw damage increase
 			row += 2
-			string = "Damage Increase: " + str(state.damage_increase.value)
+			string = "Damage Increase: " + str(round(state.damage_increase.value, 2))
 			game.win_game.addstr(row, self.get_center(string), string)
 
 			# draw damage increase amount
@@ -208,7 +208,7 @@ class Game:
 
 			# draw gold multiplier
 			row += 2
-			string = "Gold Bonus: " + str(round(100 * state.gold_multiplier - 100)) + "%"
+			string = "Gold Multiplier: " + str(round(state.gold_multiplier, 2))
 			game.win_game.addstr(row, self.get_center(string), string)
 
 			# draw gold
@@ -261,15 +261,15 @@ class Game:
 			game.win_game.addstr(row, self.get_center(string), string)
 
 			row += 3
-			string = "1: Increase Base Damage Increase by " + str(state.damage_increase_amount)
+			string = "1: Upgrade Damage Increase Amount by " + str(self.upgrade_values[0])
 			game.win_game.addstr(row, 2, string)
 
 			row += 2
-			string = "2: Increase Base Attack Rate by " + str(state.rate_increase.value)
+			string = "2: Upgrade Attack Rate Increase by " + str(self.upgrade_values[1])
 			game.win_game.addstr(row, 2, string)
 
 			row += 2
-			string = "3: Increase Gold Bonus by " + str(round(state.gold_increase.value * 100)) + "%"
+			string = "3: Upgrade Gold Multiplier by " + str(self.upgrade_values[2])
 			game.win_game.addstr(row, 2, string)
 
 			row += 2
