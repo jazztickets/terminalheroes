@@ -25,9 +25,9 @@ class State:
 
 	def __init__(self, version):
 		self.version = version
-		self.damage = Upgrade(1.0, 10, 1.2)
-		self.damage_increase = Upgrade(1.0, 100, 1.2)
-		self.rate = Upgrade(1.0, 1000, 1.2)
+		self.damage = Upgrade(1.0, 5, 1.2)
+		self.damage_increase = Upgrade(1.0, 50, 1.2)
+		self.rate = Upgrade(1.0, 100, 1.2)
 		self.rate_increase = Upgrade(0.1, 0, 0)
 		self.rebirth = Upgrade(0, 10000, 1.1)
 		self.gold = 0
@@ -55,8 +55,8 @@ class Game:
 		self.version = 1
 		self.done = 0
 		self.ready = 0
-		self.size_x = 55
-		self.size_y = 25
+		self.size_x = 60
+		self.size_y = 30
 		self.message_size_y = 2
 		self.health_width = 30
 		self.screen = None
@@ -82,8 +82,8 @@ class Game:
 	def start(self):
 		self.state = State(self.version)
 		self.state.version = self.version
-		self.load()
 		self.state.calc()
+		self.load()
 
 		self.win_command.addstr(0, 0, "q: quit ^X: new game u: upgrade damage i: upgrade damage increase o: upgrade attack rate r: rebirth")
 		self.win_command.noutrefresh()
@@ -182,13 +182,18 @@ class Game:
 			game.win_game.addstr(row, self.get_center(string), string)
 
 			# draw damage
-			row += 1
+			row += 2
 			string = "Damage: " + str(round(state.damage.value, 2))
 			game.win_game.addstr(row, self.get_center(string), string)
 
 			# draw attack rate
 			row += 1
 			string = "Attack Rate: " + str(round(state.rate.value, 2))
+			game.win_game.addstr(row, self.get_center(string), string)
+
+			# draw attack rate increase
+			row += 1
+			string = "Attack Rate Increase: " + str(state.rate_increase.value)
 			game.win_game.addstr(row, self.get_center(string), string)
 
 			# draw damage increase
@@ -310,8 +315,9 @@ class Game:
 			self.state.attack_timer += frametime
 
 			# make an attack
-			if self.state.attack_timer >= 1.0 / self.state.rate.value:
-				self.state.attack_timer = 0
+			period = 1.0 / self.state.rate.value
+			while self.state.attack_timer >= period:
+				self.state.attack_timer -= period
 				self.state.health -= self.state.damage.value
 				self.update_health()
 
