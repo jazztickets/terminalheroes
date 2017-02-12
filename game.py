@@ -22,18 +22,19 @@ class State:
 
 	def __init__(self, version):
 		self.version = version
-		self.dps = Upgrade(1.0, 10, 1.2)
-		self.dps_increase = Upgrade(1.0, 100, 1.2)
+		self.damage = Upgrade(1.0, 10, 1.2)
+		self.damage_increase = Upgrade(1.0, 100, 1.2)
+		self.rate = Upgrade(1.0, 10, 1.2)
 		self.rebirth = Upgrade(0, 10000, 1.5)
-		self.update_time = 1.0
 		self.gold = 0
 		self.gold_multiplier = 1
 		self.level = 1
+		self.attack_timer = 0
 		self.health = 0
 		self.max_health = 0
-		self.health_multiplier = 3
-		self.health_increase_exponent = 1.6
-		self.dps_increase_amount = 1.0
+		self.health_multiplier = 1
+		self.health_increase_exponent = 1.5
+		self.damage_increase_amount = 1.0
 
 class Game:
 
@@ -48,6 +49,9 @@ class Game:
 		self.health_width = 30
 		self.screen = None
 		self.state = None
+		self.elapsed = 0
+		self.max_fps = 150.0
+		self.timestep = 1 / 100.0
 
 		self.screen = curses.initscr()
 		curses.start_color()
@@ -85,24 +89,20 @@ class Game:
 			elif c == ord('r'):
 				if self.state.gold >= self.state.rebirth.cost:
 					self.state.rebirth.buy(1)
-					dps_increase = self.state.dps_increase.value
+					damage_increase = self.state.damage_increase.value
 					rebirth = self.state.rebirth
 					self.state = State(self.version)
-					self.state.dps_increase.value = dps_increase
+					self.state.damage_increase.value = damage_increase
 					self.state.rebirth = rebirth
 					self.init_level()
 			elif c == ord('u'):
-				if self.state.gold >= self.state.dps.cost:
-					self.state.gold -= self.state.dps.cost
-					self.state.dps.buy(self.state.dps_increase.value)
-			elif c == ord('2'):
-				self.state.update_time = 1.0
-			elif c == ord('1'):
-				self.state.update_time = 0.1
+				if self.state.gold >= self.state.damage.cost:
+					self.state.gold -= self.state.damage.cost
+					self.state.damage.buy(self.state.damage_increase.value)
 			elif c == ord('i'):
-				if self.state.gold >= self.state.dps_increase.cost:
-					self.state.gold -= self.state.dps_increase.cost
-					self.state.dps_increase.buy(self.state.dps_increase_amount)
+				if self.state.gold >= self.state.damage_increase.cost:
+					self.state.gold -= self.state.damage_increase.cost
+					self.state.damage_increase.buy(self.state.damage_increase_amount)
 			elif c == ord('q'):
 				self.save()
 				self.done = 1
@@ -140,17 +140,27 @@ class Game:
 
 		# draw dps
 		row += 2
-		string = "DPS: " + str(round(state.dps.value, 2))
+		string = "DPS: " + str(round(state.rate.value * state.damage.value, 2))
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
 
-		# draw dps increase
+		# draw damage
 		row += 1
-		string = "DPS Increase: " + str(state.dps_increase.value)
+		string = "Damage: " + str(round(state.damage.value, 2))
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
 
-		# draw dps increase amount
+		# draw attack rate
 		row += 1
-		string = "DPS Increase Amount: " + str(state.dps_increase_amount)
+		string = "Attack Rate: " + str(state.rate.value)
+		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+
+		# draw damage increase
+		row += 2
+		string = "Damage Increase: " + str(state.damage_increase.value)
+		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+
+		# draw damage increase amount
+		row += 1
+		string = "Damage Increase Amount: " + str(state.damage_increase_amount)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
 
 		# draw gold multiplier
@@ -166,17 +176,17 @@ class Game:
 		# draw upgrade cost
 		row += 2
 		color = 1
-		if state.gold >= state.dps.cost:
+		if state.gold >= state.damage.cost:
 			color = 2
-		string = "Upgrade DPS Cost: " + str(state.dps.cost)
+		string = "Upgrade Damage Cost: " + str(state.damage.cost)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string, curses.color_pair(color))
 
 		# draw upgrade dps increase cost
 		row += 1
 		color = 1
-		if state.gold >= state.dps_increase.cost:
+		if state.gold >= state.damage_increase.cost:
 			color = 2
-		string = "Upgrade DPS Increase Cost: " + str(state.dps_increase.cost)
+		string = "Upgrade Damage Increase Cost: " + str(state.damage_increase.cost)
 		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string, curses.color_pair(color))
 
 		# draw rebirths
@@ -230,11 +240,17 @@ class Game:
 		self.set_status(bonus_message + "You earned " + str(total_reward) + " gold!")
 		self.state.gold += total_reward
 
-	def update(self):
-		self.state.health -= self.state.dps.value
-		self.update_health()
+	def update(self, frametime):
+		self.state.attack_timer += frametime
+
+		# make an attack
+		if self.state.attack_timer >= 1.0 / self.state.rate.value:
+			self.state.attack_timer = 0
+			self.state.health -= self.state.damage.value
+			self.update_health()
 
 	def load(self):
+		return
 		try:
 			with open(game.save_file, 'rb') as f:
 				self.state = pickle.load(f)
@@ -249,12 +265,29 @@ class Game:
 			pickle.dump(self.state, f)
 
 def update_loop():
-
+	timer = time.perf_counter()
+	accumulator = 0.0
 	while not game.done:
 		if game.ready:
-			game.update()
+
+			# get frame time
+			frametime = (time.perf_counter() - timer)
+			timer = time.perf_counter()
+
+			# update game
+			accumulator += frametime
+			while accumulator >= game.timestep:
+				game.update(game.timestep)
+				accumulator -= game.timestep
+
+			# draw
 			game.draw()
-			time.sleep(game.state.update_time)
+
+			# sleep
+			if frametime > 0:
+				extratime = 1.0 / game.max_fps - frametime
+				if extratime > 0:
+					time.sleep(extratime)
 
 game = Game()
 update_thread = threading.Thread(target=update_loop)
