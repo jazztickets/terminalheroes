@@ -319,7 +319,8 @@ class Game:
 			while self.state.attack_timer >= period:
 				self.state.attack_timer -= period
 				self.state.health -= self.state.damage.value
-				self.update_health()
+
+			self.update_health()
 
 	def load(self):
 		try:
