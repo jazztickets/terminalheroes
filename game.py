@@ -7,6 +7,9 @@ import random
 import sys
 import pickle
 
+MODE_PLAY = 0
+MODE_UPGRADE = 1
+
 class Upgrade:
 
 	def __init__(self, value, cost, cost_multiplier):
@@ -24,10 +27,12 @@ class State:
 		self.version = version
 		self.damage = Upgrade(1.0, 10, 1.2)
 		self.damage_increase = Upgrade(1.0, 100, 1.2)
-		self.rate = Upgrade(1.0, 10, 1.2)
-		self.rebirth = Upgrade(0, 10000, 1.5)
+		self.rate = Upgrade(1.0, 1000, 1.2)
+		self.rate_increase = Upgrade(0.1, 0, 0)
+		self.rebirth = Upgrade(0, 10000, 1.1)
 		self.gold = 0
 		self.gold_multiplier = 1
+		self.gold_increase = Upgrade(0.05, 0, 0)
 		self.level = 1
 		self.attack_timer = 0
 		self.health = 0
@@ -35,6 +40,13 @@ class State:
 		self.health_multiplier = 1
 		self.health_increase_exponent = 1.5
 		self.damage_increase_amount = 1.0
+
+		self.base_damage_increase = self.damage_increase.value
+		self.base_rate = self.rate.value
+
+	def calc(self):
+		self.damage_increase.value = self.base_damage_increase
+		self.rate.value = self.base_rate
 
 class Game:
 
@@ -52,6 +64,7 @@ class Game:
 		self.elapsed = 0
 		self.max_fps = 150.0
 		self.timestep = 1 / 100.0
+		self.mode = MODE_PLAY
 
 		self.screen = curses.initscr()
 		curses.start_color()
@@ -70,8 +83,9 @@ class Game:
 		self.state = State(self.version)
 		self.state.version = self.version
 		self.load()
+		self.state.calc()
 
-		self.win_command.addstr(0, 0, "q: quit ^X: new game u: upgrade dps i: upgrade dps increase r: rebirth")
+		self.win_command.addstr(0, 0, "q: quit ^X: new game u: upgrade damage i: upgrade damage increase o: upgrade attack rate r: rebirth")
 		self.win_command.noutrefresh()
 		curses.doupdate()
 
@@ -80,33 +94,55 @@ class Game:
 			c = self.win_command.getch()
 			if c == curses.KEY_RESIZE:
 				(max_y, max_x) = self.screen.getmaxyx()
-			elif c == 10:
-				pass
-			# ^X
-			elif c == 24:
-				self.state = State(self.version)
-				self.init_level()
-			elif c == ord('r'):
-				if self.state.gold >= self.state.rebirth.cost:
-					self.state.rebirth.buy(1)
-					damage_increase = self.state.damage_increase.value
-					rebirth = self.state.rebirth
+
+			if self.mode == MODE_PLAY:
+				# ^X
+				if c == 24:
 					self.state = State(self.version)
-					self.state.damage_increase.value = damage_increase
-					self.state.rebirth = rebirth
 					self.init_level()
-			elif c == ord('u'):
-				if self.state.gold >= self.state.damage.cost:
-					self.state.gold -= self.state.damage.cost
-					self.state.damage.buy(self.state.damage_increase.value)
-			elif c == ord('i'):
-				if self.state.gold >= self.state.damage_increase.cost:
-					self.state.gold -= self.state.damage_increase.cost
-					self.state.damage_increase.buy(self.state.damage_increase_amount)
-			elif c == ord('q'):
-				self.save()
-				self.done = 1
-				break
+				elif c == ord('r'):
+					if self.state.gold >= self.state.rebirth.cost:
+						self.mode = MODE_UPGRADE
+				elif c == ord('u'):
+					if self.state.gold >= self.state.damage.cost:
+						self.state.gold -= self.state.damage.cost
+						self.state.damage.buy(self.state.damage_increase.value)
+				elif c == ord('i'):
+					if self.state.gold >= self.state.damage_increase.cost:
+						self.state.gold -= self.state.damage_increase.cost
+						self.state.damage_increase.buy(self.state.damage_increase_amount)
+				elif c == ord('o'):
+					if self.state.gold >= self.state.rate.cost:
+						self.state.gold -= self.state.rate.cost
+						self.state.rate.buy(self.state.rate_increase.value)
+				elif c == ord('q'):
+					self.save()
+					self.done = 1
+					break
+			elif self.mode == MODE_UPGRADE:
+				rebirth = False
+				if c == ord('r'):
+					self.mode = MODE_PLAY
+				elif c == ord('1'):
+					self.state.base_damage_increase += self.state.damage_increase_amount
+					rebirth = True
+				elif c == ord('2'):
+					rebirth = True
+					self.state.base_rate += self.state.rate_increase.value
+				elif c == ord('3'):
+					rebirth = True
+					self.state.gold_multiplier += self.state.gold_increase.value
+
+				if rebirth:
+					self.state.rebirth.buy(1)
+					old_state = self.state
+					self.state = State(self.version)
+					self.state.rebirth = old_state.rebirth
+					self.state.base_damage_increase = old_state.base_damage_increase
+					self.state.base_rate = old_state.base_rate
+					self.state.gold_multiplier = old_state.gold_multiplier
+					self.state.calc()
+					self.init_level()
 
 			#if c != -1:
 			#	self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
@@ -121,97 +157,134 @@ class Game:
 		game.win_game.erase()
 		game.win_game.border(0, 0, 0, 0, 0, 0, 0, 0)
 
-		# draw level
-		row = 2
-		string = "Level: " + str(state.level)
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+		if self.mode == MODE_PLAY:
 
-		# draw health
-		row += 1
-		string = "Enemy Health: " + str(int(state.health)) + " / " + str(round(state.max_health, 2))
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+			# draw level
+			row = 2
+			string = "Level: " + str(state.level)
+			game.win_game.addstr(row, self.get_center(string), string)
 
-		# draw health bar
-		row += 1
-		health_percent = state.health / state.max_health
-		health_bars = int(game.health_width * health_percent)
-		string = ("#" * health_bars).ljust(game.health_width, "-")
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+			# draw health
+			row += 1
+			string = "Enemy Health: " + str(int(state.health)) + " / " + str(round(state.max_health, 2))
+			game.win_game.addstr(row, self.get_center(string), string)
 
-		# draw dps
-		row += 2
-		string = "DPS: " + str(round(state.rate.value * state.damage.value, 2))
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+			# draw health bar
+			row += 1
+			health_percent = state.health / state.max_health
+			health_bars = int(game.health_width * health_percent)
+			string = ("#" * health_bars).ljust(game.health_width, "-")
+			game.win_game.addstr(row, self.get_center(string), string)
 
-		# draw damage
-		row += 1
-		string = "Damage: " + str(round(state.damage.value, 2))
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+			# draw dps
+			row += 2
+			string = "DPS: " + str(round(state.rate.value * state.damage.value, 2))
+			game.win_game.addstr(row, self.get_center(string), string)
 
-		# draw attack rate
-		row += 1
-		string = "Attack Rate: " + str(state.rate.value)
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+			# draw damage
+			row += 1
+			string = "Damage: " + str(round(state.damage.value, 2))
+			game.win_game.addstr(row, self.get_center(string), string)
 
-		# draw damage increase
-		row += 2
-		string = "Damage Increase: " + str(state.damage_increase.value)
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+			# draw attack rate
+			row += 1
+			string = "Attack Rate: " + str(round(state.rate.value, 2))
+			game.win_game.addstr(row, self.get_center(string), string)
 
-		# draw damage increase amount
-		row += 1
-		string = "Damage Increase Amount: " + str(state.damage_increase_amount)
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+			# draw damage increase
+			row += 2
+			string = "Damage Increase: " + str(state.damage_increase.value)
+			game.win_game.addstr(row, self.get_center(string), string)
 
-		# draw gold multiplier
-		row += 2
-		string = "Gold Bonus: " + str(round(100 * state.gold_multiplier - 100)) + "%"
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+			# draw damage increase amount
+			row += 1
+			string = "Damage Increase Amount: " + str(state.damage_increase_amount)
+			game.win_game.addstr(row, self.get_center(string), string)
 
-		# draw gold
-		row += 1
-		string = "Gold: " + str(state.gold)
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string, curses.A_BOLD)
+			# draw gold multiplier
+			row += 2
+			string = "Gold Bonus: " + str(round(100 * state.gold_multiplier - 100)) + "%"
+			game.win_game.addstr(row, self.get_center(string), string)
 
-		# draw upgrade cost
-		row += 2
-		color = 1
-		if state.gold >= state.damage.cost:
-			color = 2
-		string = "Upgrade Damage Cost: " + str(state.damage.cost)
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string, curses.color_pair(color))
+			# draw gold
+			row += 1
+			string = "Gold: " + str(state.gold)
+			game.win_game.addstr(row, self.get_center(string), string, curses.A_BOLD)
 
-		# draw upgrade dps increase cost
-		row += 1
-		color = 1
-		if state.gold >= state.damage_increase.cost:
-			color = 2
-		string = "Upgrade Damage Increase Cost: " + str(state.damage_increase.cost)
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string, curses.color_pair(color))
+			# draw upgrade cost
+			row += 2
+			color = 1
+			if state.gold >= state.damage.cost:
+				color = 2
+			string = "Upgrade Damage Cost: " + str(state.damage.cost)
+			game.win_game.addstr(row, self.get_center(string), string, curses.color_pair(color))
 
-		# draw rebirths
-		row += 2
-		string = "Rebirths: " + str(state.rebirth.value)
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string)
+			# draw upgrade damage increase cost
+			row += 1
+			color = 1
+			if state.gold >= state.damage_increase.cost:
+				color = 2
+			string = "Upgrade Damage Increase Cost: " + str(state.damage_increase.cost)
+			game.win_game.addstr(row, self.get_center(string), string, curses.color_pair(color))
 
-		# draw rebirth cost
-		row += 1
-		color = 1
-		if state.gold >= state.rebirth.cost:
-			color = 2
-		string = "Rebirth Cost: " + str(state.rebirth.cost)
-		game.win_game.addstr(row, int(game.size_x / 2 - len(string)/2) + 1, string, curses.color_pair(color))
+			# draw upgrade attack rate cost
+			row += 1
+			color = 1
+			if state.gold >= state.rate.cost:
+				color = 2
+			string = "Upgrade Attack Rate Cost: " + str(state.rate.cost)
+			game.win_game.addstr(row, self.get_center(string), string, curses.color_pair(color))
+
+			# draw rebirths
+			row += 2
+			string = "Rebirths: " + str(state.rebirth.value)
+			game.win_game.addstr(row, self.get_center(string), string)
+
+			# draw rebirth cost
+			row += 1
+			color = 1
+			if state.gold >= state.rebirth.cost:
+				color = 2
+			string = "Rebirth Cost: " + str(state.rebirth.cost)
+			game.win_game.addstr(row, self.get_center(string), string, curses.color_pair(color))
+
+		elif self.mode == MODE_UPGRADE:
+
+			# draw level
+			row = 2
+			string = "Upgrade Options"
+			game.win_game.addstr(row, self.get_center(string), string)
+
+			row += 3
+			string = "1: Increase Base Damage Increase by " + str(state.damage_increase_amount)
+			game.win_game.addstr(row, 2, string)
+
+			row += 2
+			string = "2: Increase Base Attack Rate by " + str(state.rate_increase.value)
+			game.win_game.addstr(row, 2, string)
+
+			row += 2
+			string = "3: Increase Gold Bonus by " + str(round(state.gold_increase.value * 100)) + "%"
+			game.win_game.addstr(row, 2, string)
+
+			row += 2
+			string = "r: Cancel"
+			game.win_game.addstr(row, 2, string)
 
 		self.win_game.noutrefresh()
 		self.win_command.noutrefresh()
 		self.win_message.noutrefresh()
 		curses.doupdate()
 
+	def get_center(self, string):
+		return int(game.size_x / 2 - len(string)/2) + 1
+
 	def set_status(self, text):
 		self.win_message.erase()
 		self.win_message.addstr(0, 0, text)
 
 	def init_level(self):
+		self.mode = MODE_PLAY
 		self.state.max_health = int(math.pow(self.state.level, self.state.health_increase_exponent) * self.state.health_multiplier)
 		self.state.health = self.state.max_health
 		self.ready = 1
@@ -226,31 +299,23 @@ class Game:
 		return int(self.state.level * multiplier)
 
 	def update_reward(self):
-		bonus = 0
-		bonus_multiplier = 1
-		if random.randint(0, 9) == 0:
-			bonus_multiplier = 1.5
-			bonus = 10
 
-		total_reward = int((self.get_reward(bonus_multiplier) + bonus) * self.state.gold_multiplier)
-		bonus_message = ""
-		if bonus > 0:
-			bonus_message = "BONUS! "
+		total_reward = self.get_reward(self.state.gold_multiplier)
 
-		self.set_status(bonus_message + "You earned " + str(total_reward) + " gold!")
+		self.set_status("You earned " + str(total_reward) + " gold!")
 		self.state.gold += total_reward
 
 	def update(self, frametime):
-		self.state.attack_timer += frametime
+		if self.mode == MODE_PLAY:
+			self.state.attack_timer += frametime
 
-		# make an attack
-		if self.state.attack_timer >= 1.0 / self.state.rate.value:
-			self.state.attack_timer = 0
-			self.state.health -= self.state.damage.value
-			self.update_health()
+			# make an attack
+			if self.state.attack_timer >= 1.0 / self.state.rate.value:
+				self.state.attack_timer = 0
+				self.state.health -= self.state.damage.value
+				self.update_health()
 
 	def load(self):
-		return
 		try:
 			with open(game.save_file, 'rb') as f:
 				self.state = pickle.load(f)
