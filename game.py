@@ -328,8 +328,9 @@ class Game:
 		self.state.gold += total_reward
 
 	def update(self, frametime):
+		self.state.elapsed += frametime
+
 		if self.mode == MODE_PLAY:
-			self.state.elapsed += frametime
 			self.state.attack_timer += frametime
 
 			# make an attack
