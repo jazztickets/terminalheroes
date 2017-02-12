@@ -31,12 +31,12 @@ class State:
 		self.rate = Upgrade(1.0, 100, 1.2)
 		self.rate_increase = Upgrade(0.1, 0, 0)
 		self.gold = 0
-		self.gold_multiplier = 1
+		self.gold_multiplier = 1.0
 		self.gold_increase = Upgrade(0.05, 0, 0)
 		self.level = 1
 		self.health = 0
 		self.max_health = 0
-		self.health_multiplier = 1
+		self.health_multiplier = 1.0
 		self.health_increase_exponent = 1.5
 		self.attack_timer = 0
 		self.elapsed = 0.0
