@@ -34,6 +34,7 @@ class State:
 		self.gold_multiplier = 1.0
 		self.gold_increase = Upgrade(0.05, 0, 0)
 		self.level = 1
+		self.highest_level = 1
 		self.health = 0
 		self.max_health = 0
 		self.health_multiplier = 1.0
@@ -139,6 +140,7 @@ class Game:
 					old_state = self.state
 					self.state = State(self.version)
 					self.state.elapsed = old_state.elapsed
+					self.state.highest_level = old_state.highest_level
 					self.state.rebirth = old_state.rebirth
 					self.state.damage_increase_amount = old_state.damage_increase_amount
 					self.state.rate_increase.value = old_state.rate_increase.value
@@ -257,6 +259,11 @@ class Game:
 
 			# draw elapsed time
 			row += 2
+			string = "Highest Level: " + str(state.highest_level)
+			game.win_game.addstr(row, self.get_center(string), string)
+
+			# draw elapsed time
+			row += 1
 			string = "Elapsed Time: " + self.get_time(state.elapsed)
 			game.win_game.addstr(row, self.get_center(string), string)
 
@@ -315,6 +322,9 @@ class Game:
 		if self.state.health <= 0:
 			self.update_reward()
 			self.state.level += 1
+			if self.state.level > self.state.highest_level:
+				self.state.highest_level = self.state.level
+
 			self.init_level()
 
 	def get_reward(self, multiplier):
