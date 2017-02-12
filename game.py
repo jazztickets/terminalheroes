@@ -39,6 +39,7 @@ class State:
 		self.health_multiplier = 1
 		self.health_increase_exponent = 1.5
 		self.attack_timer = 0
+		self.elapsed = 0.0
 		self.rebirth = Upgrade(0, 10000, 1.1)
 
 	# calculate base stats
@@ -137,6 +138,7 @@ class Game:
 					self.state.rebirth.buy(1)
 					old_state = self.state
 					self.state = State(self.version)
+					self.state.elapsed = old_state.elapsed
 					self.state.rebirth = old_state.rebirth
 					self.state.damage_increase_amount = old_state.damage_increase_amount
 					self.state.rate_increase.value = old_state.rate_increase.value
@@ -253,6 +255,11 @@ class Game:
 			string = "Rebirth Cost: " + str(state.rebirth.cost)
 			game.win_game.addstr(row, self.get_center(string), string, curses.color_pair(color))
 
+			# draw elapsed time
+			row += 2
+			string = "Elapsed Time: " + self.get_time(state.elapsed)
+			game.win_game.addstr(row, self.get_center(string), string)
+
 		elif self.mode == MODE_UPGRADE:
 
 			# draw level
@@ -284,6 +291,16 @@ class Game:
 	def get_center(self, string):
 		return int(game.size_x / 2 - len(string)/2) + 1
 
+	def get_time(self, time):
+		if time < 60:
+			return str(int(time)) + "s"
+		elif time < 3600:
+			return str(int(time / 60)) + "m"
+		elif time < 86400:
+			return str(int(time / 3600 % 24)) + "h" + str(int(time / 60 % 60)) + "m"
+		else:
+			return str(int(time / 86400)) + "d" + str(int(time / 3600 % 24)) + "h"
+
 	def set_status(self, text):
 		self.win_message.erase()
 		self.win_message.addstr(0, 0, text)
@@ -312,6 +329,7 @@ class Game:
 
 	def update(self, frametime):
 		if self.mode == MODE_PLAY:
+			self.state.elapsed += frametime
 			self.state.attack_timer += frametime
 
 			# make an attack
