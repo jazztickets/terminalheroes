@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import curses
 import threading
 import time
@@ -66,6 +67,14 @@ class Game:
 		self.timestep = 1 / 100.0
 		self.mode = MODE_PLAY
 		self.upgrade_values = [ 1.0, 0.05, 0.05 ]
+
+		if sys.platform.startswith("win"):
+			self.save_path = os.getenv("APPDATA") + os.sep + "terminalheroes" + os.sep
+		else:
+			self.save_path = os.getenv("HOME") + os.sep + ".config" + os.sep + "terminalheroes" + os.sep
+
+		if not os.path.exists(self.save_path):
+			os.makedirs(self.save_path)
 
 		self.screen = curses.initscr()
 		curses.start_color()
@@ -353,7 +362,7 @@ class Game:
 
 	def load(self):
 		try:
-			with open(game.save_file, 'rb') as f:
+			with open(game.save_path + game.save_file, 'rb') as f:
 				self.state = pickle.load(f)
 		except:
 			return
@@ -362,7 +371,7 @@ class Game:
 			self.state = State(self.version)
 
 	def save(self):
-		with open(game.save_file, 'wb') as f:
+		with open(game.save_path + game.save_file, 'wb') as f:
 			pickle.dump(self.state, f)
 
 def update_loop():
