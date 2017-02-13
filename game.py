@@ -381,14 +381,14 @@ class Game:
 			pickle.dump(self.state, f)
 
 def update_loop():
-	timer = time.perf_counter()
+	timer = time.time()
 	accumulator = 0.0
 	while not game.done:
 		if game.ready:
 
 			# get frame time
-			frametime = (time.perf_counter() - timer)
-			timer = time.perf_counter()
+			frametime = (time.time() - timer)
+			timer = time.time()
 
 			# update game
 			accumulator += frametime
