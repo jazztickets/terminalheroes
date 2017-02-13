@@ -77,17 +77,23 @@ class Game:
 			os.makedirs(self.save_path)
 
 		self.screen = curses.initscr()
-		curses.start_color()
-		curses.curs_set(0)
-		curses.noecho()
 		(self.max_y, self.max_x) = self.screen.getmaxyx()
-		self.win_game = curses.newwin(self.size_y, self.size_x, int(self.max_y/2 - self.size_y/2), int(self.max_x/2 - self.size_x/2))
-		self.win_command = curses.newwin(self.message_size_y, self.max_x)
-		self.win_message = curses.newwin(self.message_size_y, self.max_x, int(self.max_y - self.message_size_y), 0)
+
+		try:
+			self.win_game = curses.newwin(self.size_y, self.size_x, int(self.max_y/2 - self.size_y/2), int(self.max_x/2 - self.size_x/2))
+			self.win_command = curses.newwin(self.message_size_y, self.max_x)
+			self.win_message = curses.newwin(self.message_size_y, self.max_x, int(self.max_y - self.message_size_y), 0)
+		except:
+			print("Increase your terminal window size")
+			curses.endwin()
+			sys.exit(1)
 
 		# set up colors
+		curses.start_color()
 		curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
 		curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_RED)
+		curses.curs_set(0)
+		curses.noecho()
 
 	def start(self):
 		self.state = State(self.version)
@@ -399,7 +405,13 @@ def update_loop():
 				if extratime > 0:
 					time.sleep(extratime)
 
-game = Game()
+try:
+	game = Game()
+except Exception as e:
+	curses.endwin()
+	print(str(e))
+	sys.exit(1)
+
 update_thread = threading.Thread(target=update_loop)
 update_thread.daemon = True
 update_thread.start()
