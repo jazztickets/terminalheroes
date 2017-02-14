@@ -10,7 +10,8 @@ import pickle
 
 AUTOSAVE_TIME = 60
 MODE_PLAY = 0
-MODE_UPGRADE = 1
+MODE_REBIRTH = 1
+MODE_EVOLVE = 2
 
 class Upgrade:
 
@@ -27,6 +28,8 @@ class State:
 
 	def __init__(self, version):
 		self.version = version
+		self.base_damage_increase = 0
+		self.base_rate = 0
 		self.damage = Upgrade(1.0, 5, 1.2)
 		self.damage_increase = Upgrade(1.0, 50, 1.2)
 		self.damage_increase_amount = 1.0
@@ -44,21 +47,24 @@ class State:
 		self.attack_timer = 0
 		self.elapsed = 0.0
 		self.rebirth = Upgrade(0, 10000, 1.1)
+		self.evolve = Upgrade(0, 10, 1.1)
 
-	# calculate base stats
+	# calculate base stats after upgrade/evolve
 	def calc(self):
 		self.damage.value += self.rebirth.value
+		self.damage_increase.value += self.base_damage_increase
+		self.rate.value += self.base_rate
 		pass
 
 class Game:
 
 	def __init__(self):
 		self.save_file = "save.dat"
-		self.version = 1
+		self.version = 2
 		self.done = 0
 		self.ready = 0
 		self.size_x = 60
-		self.size_y = 30
+		self.size_y = 32
 		self.message_size_y = 2
 		self.health_width = 30
 		self.screen = None
@@ -69,6 +75,7 @@ class Game:
 		self.timestep = 1 / 100.0
 		self.mode = MODE_PLAY
 		self.upgrade_values = [ 1.0, 0.05, 0.05 ]
+		self.evolve_values = [ 10.0, 1.0 ]
 
 		if sys.platform.startswith("win"):
 			self.save_path = os.getenv("APPDATA") + "\\terminalheroes\\"
@@ -103,8 +110,9 @@ class Game:
 		self.state.calc()
 		self.load()
 		#self.state.gold = 50000
+		#self.state.rebirth.value = 100
 
-		self.win_command.addstr(0, 0, "q: quit ^X: new game u: upgrade damage i: upgrade damage increase o: upgrade attack rate r: rebirth")
+		self.win_command.addstr(0, 0, "q: quit ^X: new game u: upgrade damage i: upgrade damage increase o: upgrade attack rate r: rebirth e: evolve")
 		self.win_command.noutrefresh()
 		curses.doupdate()
 
@@ -121,7 +129,10 @@ class Game:
 					self.init_level()
 				elif c == ord('r'):
 					if self.state.gold >= self.state.rebirth.cost:
-						self.mode = MODE_UPGRADE
+						self.mode = MODE_REBIRTH
+				elif c == ord('e'):
+					if self.state.rebirth.value >= self.state.evolve.cost:
+						self.mode = MODE_EVOLVE
 				elif c == ord('u'):
 					if self.state.gold >= self.state.damage.cost:
 						self.state.gold -= self.state.damage.cost
@@ -138,30 +149,57 @@ class Game:
 					self.save()
 					self.done = 1
 					break
-			elif self.mode == MODE_UPGRADE:
-				rebirth = False
+			elif self.mode == MODE_REBIRTH:
+				confirm = False
 				if c == ord('r'):
 					self.mode = MODE_PLAY
 				elif c == ord('1'):
 					self.state.damage_increase_amount += self.upgrade_values[0]
-					rebirth = True
+					confirm = True
 				elif c == ord('2'):
-					rebirth = True
 					self.state.rate_increase.value += self.upgrade_values[1]
+					confirm = True
 				elif c == ord('3'):
-					rebirth = True
 					self.state.gold_multiplier += self.upgrade_values[2]
+					confirm = True
 
-				if rebirth:
+				if confirm:
 					self.state.rebirth.buy(1)
 					old_state = self.state
 					self.state = State(self.version)
 					self.state.elapsed = old_state.elapsed
 					self.state.highest_level = old_state.highest_level
 					self.state.rebirth = old_state.rebirth
+					self.state.evolve = old_state.evolve
 					self.state.damage_increase_amount = old_state.damage_increase_amount
 					self.state.rate_increase.value = old_state.rate_increase.value
 					self.state.gold_multiplier = old_state.gold_multiplier
+					self.state.base_damage_increase = old_state.base_damage_increase
+					self.state.base_rate = old_state.base_rate
+					self.state.calc()
+					self.init_level()
+					self.save()
+
+			elif self.mode == MODE_EVOLVE:
+				confirm = False
+				if c == ord('e'):
+					self.mode = MODE_PLAY
+				elif c == ord('1'):
+					self.state.base_damage_increase += self.evolve_values[0]
+					confirm = True
+				elif c == ord('2'):
+					self.state.base_rate += self.evolve_values[1]
+					confirm = True
+
+				if confirm:
+					self.state.evolve.buy(1)
+					old_state = self.state
+					self.state = State(self.version)
+					self.state.elapsed = old_state.elapsed
+					self.state.highest_level = old_state.highest_level
+					self.state.base_damage_increase = old_state.base_damage_increase
+					self.state.base_rate = old_state.base_rate
+					self.state.evolve = old_state.evolve
 					self.state.calc()
 					self.init_level()
 					self.save()
@@ -208,24 +246,24 @@ class Game:
 			string = "Damage: " + str(round(state.damage.value, 2))
 			game.win_game.addstr(row, self.get_center(string), string)
 
-			# draw attack rate
-			row += 1
-			string = "Attack Rate: " + str(round(state.rate.value, 2))
-			game.win_game.addstr(row, self.get_center(string), string)
-
-			# draw attack rate increase
-			row += 1
-			string = "Attack Rate Increase: " + str(round(state.rate_increase.value, 2))
-			game.win_game.addstr(row, self.get_center(string), string)
-
 			# draw damage increase
-			row += 2
+			row += 1
 			string = "Damage Increase: " + str(round(state.damage_increase.value, 2))
 			game.win_game.addstr(row, self.get_center(string), string)
 
 			# draw damage increase amount
 			row += 1
 			string = "Damage Increase Amount: " + str(state.damage_increase_amount)
+			game.win_game.addstr(row, self.get_center(string), string)
+
+			# draw attack rate
+			row += 2
+			string = "Attack Rate: " + str(round(state.rate.value, 2))
+			game.win_game.addstr(row, self.get_center(string), string)
+
+			# draw attack rate increase
+			row += 1
+			string = "Attack Rate Increase: " + str(round(state.rate_increase.value, 2))
 			game.win_game.addstr(row, self.get_center(string), string)
 
 			# draw gold multiplier
@@ -275,6 +313,19 @@ class Game:
 			string = "Rebirth Cost: " + str(state.rebirth.cost)
 			game.win_game.addstr(row, self.get_center(string), string, curses.color_pair(color))
 
+			# draw evolves
+			row += 2
+			string = "Evolves: " + str(state.evolve.value)
+			game.win_game.addstr(row, self.get_center(string), string)
+
+			# draw evolve cost
+			row += 1
+			color = 1
+			if state.rebirth.value >= state.evolve.cost:
+				color = 2
+			string = "Next Evolve: " + str(state.evolve.cost) + " Rebirths"
+			game.win_game.addstr(row, self.get_center(string), string, curses.color_pair(color))
+
 			# draw elapsed time
 			row += 2
 			string = "Highest Level: " + str(state.highest_level)
@@ -285,11 +336,10 @@ class Game:
 			string = "Elapsed Time: " + self.get_time(state.elapsed)
 			game.win_game.addstr(row, self.get_center(string), string)
 
-		elif self.mode == MODE_UPGRADE:
+		elif self.mode == MODE_REBIRTH:
 
-			# draw level
 			row = 2
-			string = "Upgrade Options"
+			string = "Rebirth Options"
 			game.win_game.addstr(row, self.get_center(string), string)
 
 			row += 3
@@ -306,6 +356,24 @@ class Game:
 
 			row += 2
 			string = "r: Cancel"
+			game.win_game.addstr(row, 2, string)
+
+		elif self.mode == MODE_EVOLVE:
+
+			row = 2
+			string = "Evolve Options"
+			game.win_game.addstr(row, self.get_center(string), string)
+
+			row += 3
+			string = "1: Upgrade Base Damage Increase by " + str(self.evolve_values[0])
+			game.win_game.addstr(row, 2, string)
+
+			row += 2
+			string = "2: Upgrade Base Attack Rate by " + str(self.evolve_values[1])
+			game.win_game.addstr(row, 2, string)
+
+			row += 2
+			string = "e: Cancel"
 			game.win_game.addstr(row, 2, string)
 
 		self.win_game.noutrefresh()
