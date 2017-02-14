@@ -8,6 +8,7 @@ import random
 import sys
 import pickle
 
+AUTOSAVE_TIME = 60
 MODE_PLAY = 0
 MODE_UPGRADE = 1
 
@@ -63,15 +64,16 @@ class Game:
 		self.screen = None
 		self.state = None
 		self.elapsed = 0
+		self.save_timer = 0
 		self.max_fps = 150.0
 		self.timestep = 1 / 100.0
 		self.mode = MODE_PLAY
 		self.upgrade_values = [ 1.0, 0.05, 0.05 ]
 
 		if sys.platform.startswith("win"):
-			self.save_path = os.getenv("APPDATA") + os.sep + "terminalheroes" + os.sep
+			self.save_path = os.getenv("APPDATA") + "\\terminalheroes\\"
 		else:
-			self.save_path = os.getenv("HOME") + os.sep + ".config" + os.sep + "terminalheroes" + os.sep
+			self.save_path = os.getenv("HOME") + "/.local/share/terminalheroes/"
 
 		if not os.path.exists(self.save_path):
 			os.makedirs(self.save_path)
@@ -355,6 +357,11 @@ class Game:
 
 	def update(self, frametime):
 		self.state.elapsed += frametime
+		self.save_timer += frametime
+
+		if self.save_timer >= AUTOSAVE_TIME:
+			self.save_timer = 0
+			self.save()
 
 		if self.mode == MODE_PLAY:
 			self.state.attack_timer += frametime
