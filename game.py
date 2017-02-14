@@ -162,6 +162,7 @@ class Game:
 					self.state.gold_multiplier = old_state.gold_multiplier
 					self.state.calc()
 					self.init_level()
+					self.save()
 
 			#if c != -1:
 			#	self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
