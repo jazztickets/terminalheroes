@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import curses
-import threading
 import time
 import math
 import random
@@ -65,7 +64,7 @@ class Game:
 		self.ready = 0
 		self.size_x = 60
 		self.size_y = 32
-		self.message_size_y = 2
+		self.message_size_y = 1
 		self.health_width = 30
 		self.screen = None
 		self.state = None
@@ -76,6 +75,7 @@ class Game:
 		self.mode = MODE_PLAY
 		self.upgrade_values = [ 1.0, 0.05, 0.05 ]
 		self.evolve_values = [ 10.0, 1.0 ]
+		self.message = ""
 
 		if sys.platform.startswith("win"):
 			self.save_path = os.getenv("APPDATA") + "\\terminalheroes\\"
@@ -86,6 +86,7 @@ class Game:
 			os.makedirs(self.save_path)
 
 		self.screen = curses.initscr()
+		self.screen.nodelay(1)
 		(self.max_y, self.max_x) = self.screen.getmaxyx()
 
 		try:
@@ -104,6 +105,101 @@ class Game:
 		curses.curs_set(0)
 		curses.noecho()
 
+	def handle_input(self):
+		c = self.screen.getch()
+		if c == curses.KEY_RESIZE:
+			(self.max_y, self.max_x) = self.screen.getmaxyx()
+			self.screen.erase()
+			self.win_message.erase()
+			self.win_message.mvwin(int(self.max_y - self.message_size_y), 0)
+
+		if self.mode == MODE_PLAY:
+			# ^X
+			if c == 24:
+				self.state = State(self.version)
+				self.init_level()
+				self.screen.erase()
+				self.message = ""
+			elif c == ord('r'):
+				if self.state.gold >= self.state.rebirth.cost:
+					self.mode = MODE_REBIRTH
+			elif c == ord('e'):
+				if self.state.rebirth.value >= self.state.evolve.cost:
+					self.mode = MODE_EVOLVE
+			elif c == ord('u'):
+				if self.state.gold >= self.state.damage.cost:
+					self.state.gold -= self.state.damage.cost
+					self.state.damage.buy(self.state.damage_increase.value)
+			elif c == ord('i'):
+				if self.state.gold >= self.state.damage_increase.cost:
+					self.state.gold -= self.state.damage_increase.cost
+					self.state.damage_increase.buy(self.state.damage_increase_amount)
+			elif c == ord('o'):
+				if self.state.gold >= self.state.rate.cost:
+					self.state.gold -= self.state.rate.cost
+					self.state.rate.buy(self.state.rate_increase.value)
+			elif c == ord('q'):
+				self.save()
+				self.done = 1
+		elif self.mode == MODE_REBIRTH:
+			confirm = False
+			if c == ord('r'):
+				self.mode = MODE_PLAY
+			elif c == ord('1'):
+				self.state.damage_increase_amount += self.upgrade_values[0]
+				confirm = True
+			elif c == ord('2'):
+				self.state.rate_increase.value += self.upgrade_values[1]
+				confirm = True
+			elif c == ord('3'):
+				self.state.gold_multiplier += self.upgrade_values[2]
+				confirm = True
+
+			if confirm:
+				self.state.rebirth.buy(1)
+				old_state = self.state
+				self.state = State(self.version)
+				self.state.elapsed = old_state.elapsed
+				self.state.highest_level = old_state.highest_level
+				self.state.rebirth = old_state.rebirth
+				self.state.evolve = old_state.evolve
+				self.state.damage_increase_amount = old_state.damage_increase_amount
+				self.state.rate_increase.value = old_state.rate_increase.value
+				self.state.gold_multiplier = old_state.gold_multiplier
+				self.state.base_damage_increase = old_state.base_damage_increase
+				self.state.base_rate = old_state.base_rate
+				self.state.calc()
+				self.init_level()
+				self.save()
+
+		elif self.mode == MODE_EVOLVE:
+			confirm = False
+			if c == ord('e'):
+				self.mode = MODE_PLAY
+			elif c == ord('1'):
+				self.state.base_damage_increase += self.evolve_values[0]
+				confirm = True
+			elif c == ord('2'):
+				self.state.base_rate += self.evolve_values[1]
+				confirm = True
+
+			if confirm:
+				self.state.evolve.buy(1)
+				old_state = self.state
+				self.state = State(self.version)
+				self.state.elapsed = old_state.elapsed
+				self.state.highest_level = old_state.highest_level
+				self.state.base_damage_increase = old_state.base_damage_increase
+				self.state.base_rate = old_state.base_rate
+				self.state.evolve = old_state.evolve
+				self.state.calc()
+				self.init_level()
+				self.save()
+
+		#if c != -1:
+		#	self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
+		#	self.win_command.addstr(1, 0, "Command: " + str(c))
+
 	def start(self):
 		self.state = State(self.version)
 		self.state.version = self.version
@@ -112,108 +208,34 @@ class Game:
 		#self.state.gold = 50000
 		#self.state.rebirth.value = 100
 
-		self.win_command.addstr(0, 0, "q: quit ^X: new game u: upgrade damage i: upgrade damage increase o: upgrade attack rate r: rebirth e: evolve")
-		self.win_command.noutrefresh()
+		self.draw_keys()
 		curses.doupdate()
 
 		self.init_level()
-		while not self.done:
-			c = self.win_command.getch()
-			if c == curses.KEY_RESIZE:
-				(max_y, max_x) = self.screen.getmaxyx()
 
-			if self.mode == MODE_PLAY:
-				# ^X
-				if c == 24:
-					self.state = State(self.version)
-					self.init_level()
-				elif c == ord('r'):
-					if self.state.gold >= self.state.rebirth.cost:
-						self.mode = MODE_REBIRTH
-				elif c == ord('e'):
-					if self.state.rebirth.value >= self.state.evolve.cost:
-						self.mode = MODE_EVOLVE
-				elif c == ord('u'):
-					if self.state.gold >= self.state.damage.cost:
-						self.state.gold -= self.state.damage.cost
-						self.state.damage.buy(self.state.damage_increase.value)
-				elif c == ord('i'):
-					if self.state.gold >= self.state.damage_increase.cost:
-						self.state.gold -= self.state.damage_increase.cost
-						self.state.damage_increase.buy(self.state.damage_increase_amount)
-				elif c == ord('o'):
-					if self.state.gold >= self.state.rate.cost:
-						self.state.gold -= self.state.rate.cost
-						self.state.rate.buy(self.state.rate_increase.value)
-				elif c == ord('q'):
-					self.save()
-					self.done = 1
-					break
-			elif self.mode == MODE_REBIRTH:
-				confirm = False
-				if c == ord('r'):
-					self.mode = MODE_PLAY
-				elif c == ord('1'):
-					self.state.damage_increase_amount += self.upgrade_values[0]
-					confirm = True
-				elif c == ord('2'):
-					self.state.rate_increase.value += self.upgrade_values[1]
-					confirm = True
-				elif c == ord('3'):
-					self.state.gold_multiplier += self.upgrade_values[2]
-					confirm = True
+	def draw_keys(self):
+		self.win_command.erase()
 
-				if confirm:
-					self.state.rebirth.buy(1)
-					old_state = self.state
-					self.state = State(self.version)
-					self.state.elapsed = old_state.elapsed
-					self.state.highest_level = old_state.highest_level
-					self.state.rebirth = old_state.rebirth
-					self.state.evolve = old_state.evolve
-					self.state.damage_increase_amount = old_state.damage_increase_amount
-					self.state.rate_increase.value = old_state.rate_increase.value
-					self.state.gold_multiplier = old_state.gold_multiplier
-					self.state.base_damage_increase = old_state.base_damage_increase
-					self.state.base_rate = old_state.base_rate
-					self.state.calc()
-					self.init_level()
-					self.save()
+		text = "q: quit ^X: new game u: upgrade damage i: upgrade damage increase o: upgrade attack rate r: rebirth e: evolve"
+		try:
+			self.win_command.addstr(0, 0, text[:self.max_x])
+		except:
+			pass
 
-			elif self.mode == MODE_EVOLVE:
-				confirm = False
-				if c == ord('e'):
-					self.mode = MODE_PLAY
-				elif c == ord('1'):
-					self.state.base_damage_increase += self.evolve_values[0]
-					confirm = True
-				elif c == ord('2'):
-					self.state.base_rate += self.evolve_values[1]
-					confirm = True
+	def draw_message(self):
+		self.win_message.erase()
 
-				if confirm:
-					self.state.evolve.buy(1)
-					old_state = self.state
-					self.state = State(self.version)
-					self.state.elapsed = old_state.elapsed
-					self.state.highest_level = old_state.highest_level
-					self.state.base_damage_increase = old_state.base_damage_increase
-					self.state.base_rate = old_state.base_rate
-					self.state.evolve = old_state.evolve
-					self.state.calc()
-					self.init_level()
-					self.save()
-
-			#if c != -1:
-			#	self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
-			#	self.win_command.addstr(1, 0, "Command: " + str(c))
-
-			game.draw()
-			self.win_command.noutrefresh()
-			curses.doupdate()
+		try:
+			self.win_message.addstr(0, 0, self.message[:self.max_x])
+		except:
+			pass
 
 	def draw(self):
 		state = game.state
+
+		# clear screen
+		self.draw_keys()
+		self.draw_message()
 		game.win_game.erase()
 		game.win_game.border(0, 0, 0, 0, 0, 0, 0, 0)
 
@@ -376,8 +398,8 @@ class Game:
 			string = "e: Cancel"
 			game.win_game.addstr(row, 2, string)
 
-		self.win_game.noutrefresh()
 		self.win_command.noutrefresh()
+		self.win_game.noutrefresh()
 		self.win_message.noutrefresh()
 		curses.doupdate()
 
@@ -393,10 +415,6 @@ class Game:
 			return str(int(time / 3600 % 24)) + "h" + str(int(time / 60 % 60)) + "m"
 		else:
 			return str(int(time / 86400)) + "d" + str(int(time / 3600 % 24)) + "h"
-
-	def set_status(self, text):
-		self.win_message.erase()
-		self.win_message.addstr(0, 0, text)
 
 	def init_level(self):
 		self.mode = MODE_PLAY
@@ -420,7 +438,7 @@ class Game:
 
 		total_reward = self.get_reward(self.state.gold_multiplier)
 
-		self.set_status("You earned " + str(total_reward) + " gold!")
+		self.message = "You earned " + str(total_reward) + " gold!"
 		self.state.gold += total_reward
 
 	def update(self, frametime):
@@ -456,30 +474,6 @@ class Game:
 		with open(game.save_path + game.save_file, 'wb') as f:
 			pickle.dump(self.state, f)
 
-def update_loop():
-	timer = time.time()
-	accumulator = 0.0
-	while not game.done:
-		if game.ready:
-
-			# get frame time
-			frametime = (time.time() - timer)
-			timer = time.time()
-
-			# update game
-			accumulator += frametime
-			while accumulator >= game.timestep:
-				game.update(game.timestep)
-				accumulator -= game.timestep
-
-			# draw
-			game.draw()
-
-			# sleep
-			if frametime > 0:
-				extratime = 1.0 / game.max_fps - frametime
-				if extratime > 0:
-					time.sleep(extratime)
 
 try:
 	game = Game()
@@ -488,11 +482,32 @@ except Exception as e:
 	print(str(e))
 	sys.exit(1)
 
-update_thread = threading.Thread(target=update_loop)
-update_thread.daemon = True
-update_thread.start()
+timer = time.time()
+accumulator = 0.0
 game.start()
-game.done = 1
-update_thread.join()
+while not game.done:
+	if game.ready:
+
+		# get frame time
+		frametime = (time.time() - timer)
+		timer = time.time()
+
+		# update input
+		game.handle_input()
+
+		# update game
+		accumulator += frametime
+		while accumulator >= game.timestep:
+			game.update(game.timestep)
+			accumulator -= game.timestep
+
+		# draw
+		game.draw()
+
+		# sleep
+		if frametime > 0:
+			extratime = 1.0 / game.max_fps - frametime
+			if extratime > 0:
+				time.sleep(extratime)
 
 curses.endwin()
