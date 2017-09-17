@@ -126,15 +126,15 @@ class Game:
 			elif c == ord('e'):
 				if self.state.rebirth.value >= self.state.evolve.cost:
 					self.mode = MODE_EVOLVE
-			elif c == ord('u'):
+			elif c == ord('u') or c == ord('1'):
 				if self.state.gold >= self.state.damage.cost:
 					self.state.gold -= self.state.damage.cost
 					self.state.damage.buy(self.state.damage_increase.value)
-			elif c == ord('i'):
+			elif c == ord('i') or c == ord('2'):
 				if self.state.gold >= self.state.damage_increase.cost:
 					self.state.gold -= self.state.damage_increase.cost
 					self.state.damage_increase.buy(self.state.damage_increase_amount)
-			elif c == ord('o'):
+			elif c == ord('o') or c == ord('3'):
 				if self.state.gold >= self.state.rate.cost:
 					self.state.gold -= self.state.rate.cost
 					self.state.rate.buy(self.state.rate_increase.value)
