@@ -292,6 +292,8 @@ class Game:
 		game.win_game.erase()
 
 		if self.mode == MODE_PLAY:
+			notation = '%d'
+			#notation = '%.4E'
 
 			# precalculate stats
 			dps = round(state.damage.value * state.rate.value, 2)
@@ -314,17 +316,17 @@ class Game:
 			dps_increase_rate = ""
 			if 'show_dps_increase' in state.upgrades:
 				dps_increase_header = "DPS"
-				dps_increase_damage = str(round(damage_increase * state.rate.value, 2))
-				dps_increase_rate = str(round(damage * attack_rate_increase, 2))
+				dps_increase_damage = str(notation % round(damage_increase * state.rate.value, 2))
+				dps_increase_rate = str(notation % round(damage * attack_rate_increase, 2))
 
 			# draw upgrades
 			data = []
 			data.append([curses.A_BOLD, 'Key', 'Upgrade', 'Value', 'Increase', dps_increase_header, 'Cost'])
-			data.append([curses.color_pair((state.gold >= state.damage.cost) + 1), '[u]', 'Damage', str(damage), str(damage_increase), dps_increase_damage, str(state.damage.cost) + 'g'])
-			data.append([curses.color_pair((state.gold >= state.damage_increase.cost) + 1), '[i]', 'Damage Increase', str(damage_increase), str(damage_increase_amount), '', str(state.damage_increase.cost) + 'g'])
-			data.append([curses.color_pair((state.gold >= state.rate.cost) + 1), '[o]', 'Attack Rate', str(attack_rate), str(attack_rate_increase), dps_increase_rate, str(state.rate.cost) + 'g'])
-			data.append([curses.color_pair((state.gold >= state.rebirth.cost) + 1), '[r]', 'Rebirths', str(rebirths), str(1), '', str(state.rebirth.cost) + 'g'])
-			data.append([curses.color_pair((state.rebirth.value >= state.evolve.cost) + 1), '[e]', 'Evolves', str(evolves), str(1), '', str(state.evolve.cost) + ' rebirths'])
+			data.append([curses.color_pair((state.gold >= state.damage.cost) + 1), '[u]', 'Damage', str(notation % damage), str(notation % damage_increase), dps_increase_damage, str(notation % state.damage.cost) + 'g'])
+			data.append([curses.color_pair((state.gold >= state.damage_increase.cost) + 1), '[i]', 'Damage Increase', str(notation % damage_increase), str(notation % damage_increase_amount), '', str(notation % state.damage_increase.cost) + 'g'])
+			data.append([curses.color_pair((state.gold >= state.rate.cost) + 1), '[o]', 'Attack Rate', str(notation % attack_rate), str(notation % attack_rate_increase), dps_increase_rate, str(notation % state.rate.cost) + 'g'])
+			data.append([curses.color_pair((state.gold >= state.rebirth.cost) + 1), '[r]', 'Rebirths', str(notation % rebirths), str(notation % 1), '', str(notation % state.rebirth.cost) + 'g'])
+			data.append([curses.color_pair((state.rebirth.value >= state.evolve.cost) + 1), '[e]', 'Evolves', str(notation % evolves), str(notation % 1), '', str(notation % state.evolve.cost) + ' rebirths'])
 			data.append([1, '[s]', 'Shop', '', '', '', ''])
 
 			sizes = get_max_sizes(data, 2)
@@ -336,13 +338,13 @@ class Game:
 			data = []
 			data.append([curses.A_BOLD, 'Stats', 'Value'])
 			if 'show_dps' in state.upgrades:
-				data.append([curses.A_NORMAL, 'DPS', str(dps)])
-			data.append([curses.A_NORMAL, 'Gold', str(gold)])
-			data.append([curses.A_NORMAL, 'Gold Multiplier', str(gold_multiplier)])
+				data.append([curses.A_NORMAL, 'DPS', str(notation % dps)])
+			data.append([curses.A_NORMAL, 'Gold', str(notation % gold)])
+			data.append([curses.A_NORMAL, 'Gold Multiplier', str(notation % gold_multiplier)])
 			if 'show_highest_level' in state.upgrades:
-				data.append([curses.A_NORMAL, 'Highest Level', str(state.highest_level)])
+				data.append([curses.A_NORMAL, 'Highest Level', str(notation % state.highest_level)])
 			if 'show_highest_dps' in state.upgrades:
-				data.append([curses.A_NORMAL, 'Highest DPS', str(state.highest_dps)])
+				data.append([curses.A_NORMAL, 'Highest DPS', str(notation % state.highest_dps)])
 			if 'show_elapsed' in state.upgrades:
 				data.append([curses.A_NORMAL, 'Elapsed Time', self.get_time(state.elapsed)])
 
@@ -353,7 +355,7 @@ class Game:
 			# draw enemy
 			data = []
 			data.append([curses.A_BOLD, 'Level', 'Health', 'Max Health', '%'])
-			data.append([curses.A_NORMAL, str(state.level), str(int(state.health)), str(int(state.max_health)), "%.2f " % (100 * state.health / state.max_health)])
+			data.append([curses.A_NORMAL, str(notation % state.level), str(notation % int(state.health)), str(notation % int(state.max_health)), "%.2f " % (100 * state.health / state.max_health)])
 
 #			# draw health bar
 #			health_bars = int(game.health_width * (state.health / state.max_health))
