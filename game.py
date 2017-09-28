@@ -121,8 +121,9 @@ class Game:
 			(self.max_y, self.max_x) = self.screen.getmaxyx()
 			self.screen.erase()
 			self.win_message.erase()
-			self.win_game.resize(self.max_y-1, self.max_x)
-			self.win_message.mvwin(int(self.max_y - self.message_size_y), 0)
+			if self.max_y > 1 and self.max_x > 0:
+				self.win_game.resize(self.max_y-1, self.max_x)
+				self.win_message.mvwin(int(self.max_y - self.message_size_y), 0)
 
 		if self.mode == MODE_PLAY:
 			# ^X
@@ -233,7 +234,10 @@ class Game:
 
 	def draw_table(self, y, template, data):
 		for row in data:
-			game.win_game.addstr(y, 0, template.format(*row[1:]), row[0])
+			try:
+				game.win_game.addstr(y, 0, template.format(*row[1:])[:self.max_x], row[0])
+			except:
+				pass
 			y += 1
 
 		return y
@@ -245,13 +249,6 @@ class Game:
 		self.draw_message()
 		game.win_game.erase()
 		#game.win_game.border(0, 0, 0, 0, 0, 0, 0, 0)
-
-#		# draw health bar
-#		row += 1
-#		health_percent = state.health / state.max_health
-#		health_bars = int(game.health_width * health_percent)
-#		string = ("#" * health_bars).ljust(game.health_width, "-")
-#		game.win_game.addstr(row, 0, string)
 
 		if self.mode == MODE_PLAY:
 
@@ -280,7 +277,7 @@ class Game:
 
 			sizes = get_max_sizes(data, 2)
 			y = self.draw_table(y, "{0:%s} {1:%s} {2:%s} {3:%s} {4:%s}" % (*sizes,), data)
-			y += 2
+			y += 1
 
 			# draw stats
 			data = []
@@ -293,16 +290,19 @@ class Game:
 
 			sizes = get_max_sizes(data, 2)
 			y = self.draw_table(y, "{0:%s} {1:%s}" % (*sizes,), data)
-			y += 2
+			y += 1
 
 			# draw enemy
 			data = []
 			data.append([curses.A_BOLD, 'Level', 'Health', 'Max Health', '%'])
 			data.append([curses.A_NORMAL, str(state.level), str(int(state.health)), str(int(state.max_health)), "%.2f " % (100 * state.health / state.max_health)])
 
+#			# draw health bar
+#			health_bars = int(game.health_width * (state.health / state.max_health))
+#			string = ("#" * health_bars).ljust(game.health_width, "-")
+
 			sizes = get_max_sizes(data, 2)
 			y = self.draw_table(y, "{0:%s} {1:%s} {2:%s} {3:%s}" % (*sizes,), data)
-			y += 2
 
 		elif self.mode == MODE_REBIRTH:
 
