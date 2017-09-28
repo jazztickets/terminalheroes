@@ -97,7 +97,7 @@ class Game:
 		self.max_fps = 150.0
 		self.timestep = 1 / 100.0
 		self.mode = MODE_PLAY
-		self.upgrade_values = [ 1.0, 0.05, 0.05 ]
+		self.rebirth_values = [ 1.0, 0.05, 0.05 ]
 		self.evolve_values = [ 10.0, 1.0 ]
 		self.message = ""
 
@@ -186,13 +186,13 @@ class Game:
 			if c == ord('q') or escape:
 				self.mode = MODE_PLAY
 			elif c == ord('1'):
-				self.state.damage_increase_amount += self.upgrade_values[0]
+				self.state.damage_increase_amount += self.rebirth_values[0]
 				confirm = True
 			elif c == ord('2'):
-				self.state.rate_increase.value += self.upgrade_values[1]
+				self.state.rate_increase.value += self.rebirth_values[1]
 				confirm = True
 			elif c == ord('3'):
-				self.state.gold_multiplier += self.upgrade_values[2]
+				self.state.gold_multiplier += self.rebirth_values[2]
 				confirm = True
 
 			if confirm:
@@ -286,8 +286,6 @@ class Game:
 		game.win_game.erase()
 
 		if self.mode == MODE_PLAY:
-			#notation = '%d'
-			#notation = '%.4E'
 
 			# precalculate stats
 			dps = round(state.damage.value * state.rate.value, 2)
@@ -364,13 +362,13 @@ class Game:
 			game.win_game.addstr(y, 0, "Rebirth Options", curses.A_BOLD)
 
 			y += 2
-			game.win_game.addstr(y, 0, "[1] Upgrade Damage Increase Amount by " + str(self.upgrade_values[0]))
+			game.win_game.addstr(y, 0, "[1] Upgrade Damage Increase Amount by " + str(self.rebirth_values[0]))
 
 			y += 1
-			game.win_game.addstr(y, 0, "[2] Upgrade Attack Rate Increase by " + str(self.upgrade_values[1]))
+			game.win_game.addstr(y, 0, "[2] Upgrade Attack Rate Increase by " + str(self.rebirth_values[1]))
 
 			y += 1
-			game.win_game.addstr(y, 0, "[3] Upgrade Gold Multiplier by " + str(self.upgrade_values[2]))
+			game.win_game.addstr(y, 0, "[3] Upgrade Gold Multiplier by " + str(self.rebirth_values[2]))
 
 			y += 2
 			game.win_game.addstr(y, 0, "[q] Cancel")
@@ -530,7 +528,6 @@ class Game:
 	def save(self):
 		with open(game.save_path + game.save_file, 'wb') as f:
 			pickle.dump(self.state, f)
-
 
 try:
 	game = Game()
