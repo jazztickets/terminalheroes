@@ -7,8 +7,9 @@ import random
 import sys
 import pickle
 
-AUTOSAVE_TIME = 60
 GAME_VERSION = 3
+TIME_SCALE = 1
+AUTOSAVE_TIME = 60
 MODE_PLAY = 0
 MODE_REBIRTH = 1
 MODE_EVOLVE = 2
@@ -481,7 +482,8 @@ class Game:
 	def init_level(self):
 		self.mode = MODE_PLAY
 		self.state.max_health = int(math.pow(self.state.level, self.state.health_increase_exponent) * self.state.health_multiplier)
-		self.state.health = self.state.max_health
+		if self.state.health <= 0:
+			self.state.health = self.state.max_health
 		self.ready = 1
 
 	def update_health(self):
@@ -556,7 +558,7 @@ while not game.done:
 		game.handle_input()
 
 		# update game
-		accumulator += frametime
+		accumulator += frametime * TIME_SCALE
 		while accumulator >= game.timestep:
 			game.update(game.timestep)
 			accumulator -= game.timestep
