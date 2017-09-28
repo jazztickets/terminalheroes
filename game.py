@@ -11,6 +11,7 @@ AUTOSAVE_TIME = 60
 MODE_PLAY = 0
 MODE_REBIRTH = 1
 MODE_EVOLVE = 2
+MODE_SHOP = 3
 
 def get_max_sizes(data, padding):
 	sizes = [0] * (len(data[0])-1)
@@ -138,6 +139,8 @@ class Game:
 			elif c == ord('e'):
 				if self.state.rebirth.value >= self.state.evolve.cost:
 					self.mode = MODE_EVOLVE
+			elif c == ord('s'):
+				self.mode = MODE_SHOP
 			elif c == ord('u') or c == ord('1'):
 				if self.state.gold >= self.state.damage.cost:
 					self.state.gold -= self.state.damage.cost
@@ -150,12 +153,12 @@ class Game:
 				if self.state.gold >= self.state.rate.cost:
 					self.state.gold -= self.state.rate.cost
 					self.state.rate.buy(self.state.rate_increase.value)
-			elif c == ord('q'):
+			elif c == ord('q') or c == 27:
 				self.save()
 				self.done = 1
 		elif self.mode == MODE_REBIRTH:
 			confirm = False
-			if c == ord('r'):
+			if c == ord('r') or c == 27:
 				self.mode = MODE_PLAY
 			elif c == ord('1'):
 				self.state.damage_increase_amount += self.upgrade_values[0]
@@ -186,7 +189,7 @@ class Game:
 
 		elif self.mode == MODE_EVOLVE:
 			confirm = False
-			if c == ord('e'):
+			if c == ord('e') or c == 27:
 				self.mode = MODE_PLAY
 			elif c == ord('1'):
 				self.state.base_damage_increase += self.evolve_values[0]
@@ -208,9 +211,13 @@ class Game:
 				self.init_level()
 				self.save()
 
+		elif self.mode == MODE_SHOP:
+			confirm = False
+			if c == ord('s') or c == 27:
+				self.mode = MODE_PLAY
+
 		#if c != -1:
-		#	self.win_command.addstr(1, 0, "Command: " + str(curses.keyname(c)) + "    ")
-		#	self.win_command.addstr(1, 0, "Command: " + str(c))
+		#	self.message = "Command: " + str(curses.keyname(c)) + " " + str(c)
 
 	def start(self):
 		self.state = State(self.version)
@@ -248,7 +255,6 @@ class Game:
 		# clear screen
 		self.draw_message()
 		game.win_game.erase()
-		#game.win_game.border(0, 0, 0, 0, 0, 0, 0, 0)
 
 		if self.mode == MODE_PLAY:
 
@@ -274,6 +280,7 @@ class Game:
 			data.append([curses.color_pair((state.gold >= state.rate.cost) + 1), '[o]', 'Attack Rate', str(attack_rate), str(attack_rate_increase), str(state.rate.cost) + 'g'])
 			data.append([curses.color_pair((state.gold >= state.rebirth.cost) + 1), '[r]', 'Rebirths', str(rebirths), str(1), str(state.rebirth.cost) + 'g'])
 			data.append([curses.color_pair((state.rebirth.value >= state.evolve.cost) + 1), '[e]', 'Evolves', str(evolves), str(1), str(state.evolve.cost) + ' rebirths'])
+			data.append([1, '[s]', 'Shop', '', '', ''])
 
 			sizes = get_max_sizes(data, 2)
 			y = self.draw_table(y, "{0:%s} {1:%s} {2:%s} {3:%s} {4:%s}" % (*sizes,), data)
@@ -342,6 +349,16 @@ class Game:
 
 			y += 2
 			string = "[e]  Cancel"
+			game.win_game.addstr(y, 0, string)
+
+		elif self.mode == MODE_SHOP:
+
+			y = 0
+			string = "Shop"
+			game.win_game.addstr(y, 0, string, curses.A_BOLD)
+
+			y += 2
+			string = "[s]  Cancel"
 			game.win_game.addstr(y, 0, string)
 
 		self.win_game.noutrefresh()
