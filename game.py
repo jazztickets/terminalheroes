@@ -90,11 +90,7 @@ class Game:
 		self.save_file = "save.dat"
 		self.version = GAME_VERSION
 		self.done = 0
-		self.ready = 0
-		self.size_x = 60
-		self.size_y = 32
 		self.message_size_y = 1
-		self.health_width = 30
 		self.screen = None
 		self.state = None
 		self.save_timer = 0
@@ -356,8 +352,8 @@ class Game:
 			data.append([curses.A_NORMAL, str(state.level), str(int(state.health)), str(int(state.max_health)), "%.2f " % (100 * state.health / state.max_health)])
 
 #			# draw health bar
-#			health_bars = int(game.health_width * (state.health / state.max_health))
-#			string = ("#" * health_bars).ljust(game.health_width, "-")
+#			health_bars = int(HEALTH_WIDTH * (state.health / state.max_health))
+#			string = ("#" * health_bars).ljust(HEALTH_WIDTH, "-")
 
 			sizes = get_max_sizes(data, 2)
 			y = self.draw_table(y, "{0:%s} {1:%s} {2:%s} {3:%s}" % (*sizes,), data)
@@ -484,7 +480,6 @@ class Game:
 		self.state.max_health = int(math.pow(self.state.level, self.state.health_increase_exponent) * self.state.health_multiplier)
 		if self.state.health <= 0:
 			self.state.health = self.state.max_health
-		self.ready = 1
 
 	def update_health(self):
 		if self.state.health <= 0:
@@ -548,28 +543,27 @@ timer = time.time()
 accumulator = 0.0
 game.start()
 while not game.done:
-	if game.ready:
 
-		# get frame time
-		frametime = (time.time() - timer)
-		timer = time.time()
+	# get frame time
+	frametime = (time.time() - timer)
+	timer = time.time()
 
-		# update input
-		game.handle_input()
+	# update input
+	game.handle_input()
 
-		# update game
-		accumulator += frametime * TIME_SCALE
-		while accumulator >= game.timestep:
-			game.update(game.timestep)
-			accumulator -= game.timestep
+	# update game
+	accumulator += frametime * TIME_SCALE
+	while accumulator >= game.timestep:
+		game.update(game.timestep)
+		accumulator -= game.timestep
 
-		# draw
-		game.draw()
+	# draw
+	game.draw()
 
-		# sleep
-		if frametime > 0:
-			extratime = 1.0 / game.max_fps - frametime
-			if extratime > 0:
-				time.sleep(extratime)
+	# sleep
+	if frametime > 0:
+		extratime = 1.0 / game.max_fps - frametime
+		if extratime > 0:
+			time.sleep(extratime)
 
 curses.endwin()
