@@ -117,7 +117,17 @@ class Game:
 		curses.noecho()
 
 	def handle_input(self):
+
+		# get key
+		escape = False
 		c = self.screen.getch()
+		nc = 0
+		if c == 27:
+			nc = self.screen.getch()
+			if nc == -1:
+				escape = True
+
+		# handle window resizes
 		if c == curses.KEY_RESIZE:
 			(self.max_y, self.max_x) = self.screen.getmaxyx()
 			self.screen.erase()
@@ -153,12 +163,12 @@ class Game:
 				if self.state.gold >= self.state.rate.cost:
 					self.state.gold -= self.state.rate.cost
 					self.state.rate.buy(self.state.rate_increase.value)
-			elif c == ord('q') or c == 27:
+			elif c == ord('q') or escape:
 				self.save()
 				self.done = 1
 		elif self.mode == MODE_REBIRTH:
 			confirm = False
-			if c == ord('r') or c == 27:
+			if c == ord('r') or escape:
 				self.mode = MODE_PLAY
 			elif c == ord('1'):
 				self.state.damage_increase_amount += self.upgrade_values[0]
@@ -189,7 +199,7 @@ class Game:
 
 		elif self.mode == MODE_EVOLVE:
 			confirm = False
-			if c == ord('e') or c == 27:
+			if c == ord('e') or escape:
 				self.mode = MODE_PLAY
 			elif c == ord('1'):
 				self.state.base_damage_increase += self.evolve_values[0]
@@ -213,11 +223,11 @@ class Game:
 
 		elif self.mode == MODE_SHOP:
 			confirm = False
-			if c == ord('s') or c == 27:
+			if c == ord('s') or escape:
 				self.mode = MODE_PLAY
 
 		#if c != -1:
-		#	self.message = "Command: " + str(curses.keyname(c)) + " " + str(c)
+		#	self.message = "Command: " + str(curses.keyname(c)) + " " + str(c) + " " + str(nc)
 
 	def start(self):
 		self.state = State(self.version)
