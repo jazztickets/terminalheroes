@@ -7,7 +7,7 @@ import random
 import sys
 import pickle
 
-GAME_VERSION = 4
+GAME_VERSION = 5
 TIME_SCALE = 1
 AUTOSAVE_TIME = 60
 MODE_PLAY = 0
@@ -68,13 +68,14 @@ class State:
 		self.health_multiplier = 1.0
 		self.health_increase_exponent = 1.5
 		self.attack_timer = 0
-		self.elapsed = 0.0
 		self.rebirth = Upgrade(0, 10000, 1.1)
 		self.evolve = Upgrade(0, 10, 1.1)
 		self.highest = {
 			'dps' : 0,
 			'level' : 0,
+			'time' : 0,
 		}
+		self.base = {}
 		self.upgrades = {}
 
 	# calculate base stats after upgrade/evolve
@@ -96,7 +97,6 @@ class Game:
 		self.health_width = 30
 		self.screen = None
 		self.state = None
-		self.elapsed = 0
 		self.save_timer = 0
 		self.max_fps = 150.0
 		self.timestep = 1 / 100.0
@@ -204,7 +204,6 @@ class Game:
 				old_state = self.state
 				self.state = State(self.version)
 				self.state.upgrades = old_state.upgrades
-				self.state.elapsed = old_state.elapsed
 				self.state.highest = old_state.highest
 				self.state.rebirth = old_state.rebirth
 				self.state.evolve = old_state.evolve
@@ -233,7 +232,6 @@ class Game:
 				old_state = self.state
 				self.state = State(self.version)
 				self.state.upgrades = old_state.upgrades
-				self.state.elapsed = old_state.elapsed
 				self.state.highest = old_state.highest
 				self.state.base_damage_increase = old_state.base_damage_increase
 				self.state.base_rate = old_state.base_rate
@@ -346,7 +344,7 @@ class Game:
 			if 'show_highest_dps' in state.upgrades:
 				data.append([curses.A_NORMAL, 'Highest DPS', str(state.highest['dps'])])
 			if 'show_elapsed' in state.upgrades:
-				data.append([curses.A_NORMAL, 'Elapsed Time', self.get_time(state.elapsed)])
+				data.append([curses.A_NORMAL, 'Elapsed Time', self.get_time(state.highest['time'])])
 
 			sizes = get_max_sizes(data, 2)
 			y = self.draw_table(y, "{0:%s} {1:%s}" % (*sizes,), data)
@@ -507,7 +505,7 @@ class Game:
 		self.state.gold += total_reward
 
 	def update(self, frametime):
-		self.state.elapsed += frametime
+		self.state.highest['time'] += frametime
 		self.save_timer += frametime
 
 		if self.save_timer >= AUTOSAVE_TIME:
