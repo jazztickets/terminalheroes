@@ -136,6 +136,7 @@ class Game:
 				self.win_game.resize(self.max_y-1, self.max_x)
 				self.win_message.mvwin(int(self.max_y - self.message_size_y), 0)
 
+		# handle based on mode
 		if self.mode == MODE_PLAY:
 			# ^X
 			if c == 24:
@@ -168,7 +169,7 @@ class Game:
 				self.done = 1
 		elif self.mode == MODE_REBIRTH:
 			confirm = False
-			if c == ord('r') or escape:
+			if c == ord('q') or escape:
 				self.mode = MODE_PLAY
 			elif c == ord('1'):
 				self.state.damage_increase_amount += self.upgrade_values[0]
@@ -199,7 +200,7 @@ class Game:
 
 		elif self.mode == MODE_EVOLVE:
 			confirm = False
-			if c == ord('e') or escape:
+			if c == ord('q') or escape:
 				self.mode = MODE_PLAY
 			elif c == ord('1'):
 				self.state.base_damage_increase += self.evolve_values[0]
@@ -223,7 +224,7 @@ class Game:
 
 		elif self.mode == MODE_SHOP:
 			confirm = False
-			if c == ord('s') or escape:
+			if c == ord('q') or escape:
 				self.mode = MODE_PLAY
 
 		#if c != -1:
@@ -340,7 +341,7 @@ class Game:
 			game.win_game.addstr(y, 0, string)
 
 			y += 2
-			string = "[r]  Cancel"
+			string = "[q]  Cancel"
 			game.win_game.addstr(y, 0, string)
 
 		elif self.mode == MODE_EVOLVE:
@@ -358,7 +359,7 @@ class Game:
 			game.win_game.addstr(y, 0, string)
 
 			y += 2
-			string = "[e]  Cancel"
+			string = "[q]  Cancel"
 			game.win_game.addstr(y, 0, string)
 
 		elif self.mode == MODE_SHOP:
@@ -368,7 +369,7 @@ class Game:
 			game.win_game.addstr(y, 0, string, curses.A_BOLD)
 
 			y += 2
-			string = "[s]  Cancel"
+			string = "[q]  Cancel"
 			game.win_game.addstr(y, 0, string)
 
 		self.win_game.noutrefresh()
@@ -426,8 +427,7 @@ class Game:
 			while self.state.attack_timer >= period:
 				self.state.attack_timer -= period
 				self.state.health -= self.state.damage.value
-
-			self.update_health()
+				self.update_health()
 
 	def load(self):
 		try:
