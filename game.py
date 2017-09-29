@@ -7,7 +7,7 @@ import random
 import sys
 import pickle
 
-DEVMODE = 1
+DEVMODE = 0
 GAME_VERSION = 7
 TIME_SCALE = 1
 AUTOSAVE_TIME = 60
