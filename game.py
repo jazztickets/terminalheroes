@@ -174,6 +174,7 @@ class Game:
 					self.mode = MODE_EVOLVE
 			elif c == ord('s'):
 				self.mode = MODE_SHOP
+				self.message = "[j] Down [k] Up [enter] Buy [s] Cancel"
 			elif c == ord('u') or c == ord('1'):
 				if self.state.gold >= self.state.damage.cost:
 					self.state.gold -= self.state.damage.cost
@@ -419,7 +420,7 @@ class Game:
 				y = 0
 				game.win_game.addstr(y, 0, "Shop", curses.A_BOLD)
 
-				y += 1
+				y += 2
 				game.win_game.addstr(y, 0, "You have " + str(state.gold) + " gold")
 			except:
 				pass
@@ -450,11 +451,6 @@ class Game:
 			sizes = get_max_sizes(data, 2)
 			y = self.draw_table(y, "{0:%s} {1:%s} {2:%s} {3:%s}" % (*sizes,), data)
 			y += 1
-
-			try:
-				game.win_game.addstr(y, 0, "[s] Cancel")
-			except:
-				pass
 
 		self.win_game.noutrefresh()
 		self.win_message.noutrefresh()
