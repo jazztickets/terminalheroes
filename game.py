@@ -14,17 +14,13 @@ MODE_PLAY = 0
 MODE_REBIRTH = 1
 MODE_EVOLVE = 2
 MODE_SHOP = 3
-UPGRADES = {
-	"Math is Hard" : {
-		"show_dps" : [ "Show DPS", 20000, 0 ],
-		"show_dps_increase" : [ "Show DPS increase next to upgrades", 100000, 0 ],
-	},
-	"Memory is Hard" : {
-		"show_highest_level" : [ "Show Highest Level", 50000, 1000 ],
-		"show_highest_dps" : [ "Show Highest DPS", 100000, 2000 ],
-		"show_elapsed" : [ "Show Elapsed Time", 150000, 3000 ],
-	},
-}
+UPGRADES = [
+	[ "show_dps", "Math is Hard I", "Show DPS", 20000, 0 ],
+	[ "show_dps_increase", "Math is Hard II", "Show DPS increase next to upgrades", 100000, 0 ],
+	[ "show_highest_level", "Memory is Hard I", "Show Highest Level", 50000, 1000 ],
+	[ "show_highest_dps", "Memory is Hard II", "Show Highest DPS", 100000, 2000 ],
+	[ "show_elapsed", "Memory is Hard III", "Show Elapsed Time", 150000, 3000 ],
+]
 
 def get_max_sizes(data, padding):
 	sizes = [padding] * (len(data[0])-1)
@@ -99,6 +95,7 @@ class Game:
 		self.mode = MODE_PLAY
 		self.rebirth_values = [ 1.0, 0.05, 0.05 ]
 		self.evolve_values = [ 10.0, 1.0 ]
+		self.cursor = 0
 		self.message = ""
 
 		if sys.platform.startswith("win"):
@@ -127,6 +124,7 @@ class Game:
 		curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_RED)
 		curses.init_pair(3, 8, curses.COLOR_BLACK)
 		curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)
+		curses.init_pair(5, curses.COLOR_GREEN, curses.COLOR_RED)
 		curses.curs_set(0)
 		curses.noecho()
 
@@ -134,12 +132,23 @@ class Game:
 
 		# get key
 		escape = False
+		key_up = False
+		key_down = False
 		c = self.screen.getch()
-		nc = 0
+
+		# handle multibyte keys
 		if c == 27:
 			nc = self.screen.getch()
 			if nc == -1:
 				escape = True
+			else:
+				c = self.screen.getch()
+				if c == ord('A'):
+					key_down = True
+				elif c == ord('B'):
+					key_up = True
+
+				#self.message = "Escape Command: " + str(curses.keyname(c)) + " " + str(c) + " " + str(nc)
 
 		# handle window resizes
 		if c == curses.KEY_RESIZE:
@@ -156,7 +165,6 @@ class Game:
 			if c == 24:
 				self.state = State(self.version)
 				self.init_level()
-				self.screen.erase()
 				self.message = ""
 			elif c == ord('r'):
 				if self.state.gold >= self.state.rebirth.cost:
@@ -237,13 +245,22 @@ class Game:
 				self.save()
 
 		elif self.mode == MODE_SHOP:
-			confirm = False
-			if c >= ord('1') and c <= ord('9'):
-				key = c - ord('1') + 1
-				self.buy_shop_upgrade(key)
 
 			if c == ord('s') or escape:
 				self.mode = MODE_PLAY
+				self.cursor = 0
+			elif c == 10:
+				self.buy_shop_upgrade(self.cursor)
+			elif key_up or c == ord('j'):
+				self.cursor += 1
+				if self.cursor > len(UPGRADES)-1:
+					self.cursor = len(UPGRADES)-1
+			elif key_down or c == ord('k'):
+				self.cursor -= 1
+				if self.cursor < 0:
+					self.cursor = 0
+
+			#self.message = str(self.cursor)
 
 		#if c != -1:
 		#	self.message = "Command: " + str(curses.keyname(c)) + " " + str(c) + " " + str(nc)
@@ -274,7 +291,10 @@ class Game:
 				game.win_game.addstr(y, 0, template.format(*row[1:])[:self.max_x], row[0])
 			except:
 				pass
+
 			y += 1
+			if y >= self.max_y:
+				return y
 
 		return y
 
@@ -358,110 +378,101 @@ class Game:
 
 		elif self.mode == MODE_REBIRTH:
 
-			y = 0
-			game.win_game.addstr(y, 0, "Rebirth Options", curses.A_BOLD)
+			try:
+				y = 0
+				game.win_game.addstr(y, 0, "Rebirth Options", curses.A_BOLD)
 
-			y += 2
-			game.win_game.addstr(y, 0, "[1] Upgrade Damage Increase Amount by " + str(self.rebirth_values[0]))
+				y += 2
+				game.win_game.addstr(y, 0, "[1] Upgrade Damage Increase Amount by " + str(self.rebirth_values[0]))
 
-			y += 1
-			game.win_game.addstr(y, 0, "[2] Upgrade Attack Rate Increase by " + str(self.rebirth_values[1]))
+				y += 1
+				game.win_game.addstr(y, 0, "[2] Upgrade Attack Rate Increase by " + str(self.rebirth_values[1]))
 
-			y += 1
-			game.win_game.addstr(y, 0, "[3] Upgrade Gold Multiplier by " + str(self.rebirth_values[2]))
+				y += 1
+				game.win_game.addstr(y, 0, "[3] Upgrade Gold Multiplier by " + str(self.rebirth_values[2]))
 
-			y += 2
-			game.win_game.addstr(y, 0, "[r] Cancel")
+				y += 2
+				game.win_game.addstr(y, 0, "[r] Cancel")
+			except:
+				pass
 
 		elif self.mode == MODE_EVOLVE:
 
-			y = 0
-			game.win_game.addstr(y, 0, "Evolve Options", curses.A_BOLD)
+			try:
+				y = 0
+				game.win_game.addstr(y, 0, "Evolve Options", curses.A_BOLD)
 
-			y += 2
-			game.win_game.addstr(y, 0, "[1] Upgrade Base Damage Increase by " + str(self.evolve_values[0]))
+				y += 2
+				game.win_game.addstr(y, 0, "[1] Upgrade Base Damage Increase by " + str(self.evolve_values[0]))
 
-			y += 1
-			game.win_game.addstr(y, 0, "[2] Upgrade Base Attack Rate by " + str(self.evolve_values[1]))
+				y += 1
+				game.win_game.addstr(y, 0, "[2] Upgrade Base Attack Rate by " + str(self.evolve_values[1]))
 
-			y += 2
-			game.win_game.addstr(y, 0, "[e] Cancel")
+				y += 2
+				game.win_game.addstr(y, 0, "[e] Cancel")
+			except:
+				pass
 
 		elif self.mode == MODE_SHOP:
 
-			y = 0
-			game.win_game.addstr(y, 0, "Shop", curses.A_BOLD)
+			try:
+				y = 0
+				game.win_game.addstr(y, 0, "Shop", curses.A_BOLD)
 
-			y += 1
-			game.win_game.addstr(y, 0, "You have " + str(state.gold) + " gold")
+				y += 1
+				game.win_game.addstr(y, 0, "You have " + str(state.gold) + " gold")
+			except:
+				pass
 
-			# draw upgrades
 			y += 2
-			key = 1
-			for category, upgrade in UPGRADES.items():
 
-				# draw category header
-				game.win_game.addstr(y, 0, category, curses.A_UNDERLINE)
-				y += 1
+			# build upgrade list
+			index = 0
+			data = []
+			data.append([curses.A_BOLD, "Name", "Description", "Cost", "Level Required"])
+			for upgrade in UPGRADES:
 
-				# draw upgrade table
-				key_string = ''
-				data = []
-				show_buy = True
-				for upgrade_name, upgrade_data in upgrade.items():
-					color = 3
-					key_string = ''
+				color = 3
+				if self.cursor == index:
+					if upgrade[0] in self.state.upgrades:
+						color = 5
+					else:
+						color = 2
+				elif upgrade[0] in self.state.upgrades:
+					color = 4
+				elif self.can_buy_shop_item(index):
+					color = 1
 
-					# determine if upgrade can be bought
-					if upgrade_name not in state.upgrades and show_buy:
-						if self.can_buy_shop_item(category, upgrade_name):
-							color = 2
-							key_string = '[' + str(key) + ']'
+				data.append([curses.color_pair(color), upgrade[1], upgrade[2], str(upgrade[3]) + 'g', str(upgrade[4])])
+				index += 1
 
-						show_buy = False
-					elif upgrade_name in state.upgrades:
-						color = 4
+			# draw upgrade table
+			sizes = get_max_sizes(data, 2)
+			y = self.draw_table(y, "{0:%s} {1:%s} {2:%s} {3:%s}" % (*sizes,), data)
+			y += 1
 
-					# show extra requirements
-					requirement = ''
-					if upgrade_data[2] > 0:
-						requirement = '*Requires level ' + str(upgrade_data[2])
-
-					# add line to table
-					data.append([curses.color_pair(color), key_string, upgrade_data[0], str(upgrade_data[1]) + 'g', requirement])
-
-				sizes = get_max_sizes(data, 2)
-				y = self.draw_table(y, "{0:%s} {1:%s} {2:%s} {3:%s}" % (*sizes,), data)
-				y += 1
-				key += 1
-
-			game.win_game.addstr(y, 0, "[s] Cancel")
+			try:
+				game.win_game.addstr(y, 0, "[s] Cancel")
+			except:
+				pass
 
 		self.win_game.noutrefresh()
 		self.win_message.noutrefresh()
 		curses.doupdate()
 
-	def can_buy_shop_item(self, category, upgrade_name):
-		upgrade = UPGRADES[category][upgrade_name]
-		if self.state.level < upgrade[2]:
+	def can_buy_shop_item(self, index):
+		upgrade = UPGRADES[index]
+		if self.state.level < upgrade[4]:
 			return False
 
-		return self.state.gold >= upgrade[1]
+		return self.state.gold >= upgrade[3]
 
-	def buy_shop_upgrade(self, key):
-		index = 1
-		for category, upgrade in UPGRADES.items():
-			if index == key:
-				show_buy = True
-				for upgrade_name, upgrade_data in upgrade.items():
-					if upgrade_name not in self.state.upgrades:
-						if self.can_buy_shop_item(category, upgrade_name):
-							self.state.upgrades[upgrade_name] = 1
-							self.state.gold -= upgrade_data[1]
-							self.message = "Bought " + upgrade_name
-							return
-
-			index += 1
+	def buy_shop_upgrade(self, index):
+		upgrade = UPGRADES[index]
+		if upgrade[0] not in self.state.upgrades and self.can_buy_shop_item(index):
+			self.state.upgrades[upgrade[0]] = 1
+			self.state.gold -= upgrade[4]
+			self.message = "Bought " + upgrade[0]
 
 	def get_time(self, time):
 		if time < 60:
