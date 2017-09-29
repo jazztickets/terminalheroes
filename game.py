@@ -165,7 +165,7 @@ class Game:
 			if c == 24:
 				self.state = State(self.version)
 				self.init_level()
-				self.message = ""
+				self.message = "New game!"
 			elif c == ord('r'):
 				if self.state.gold >= self.state.rebirth.cost:
 					self.mode = MODE_REBIRTH
@@ -260,8 +260,6 @@ class Game:
 				self.cursor -= 1
 				if self.cursor < 0:
 					self.cursor = 0
-
-			#self.message = str(self.cursor)
 
 		#if c != -1:
 		#	self.message = "Command: " + str(curses.keyname(c)) + " " + str(c) + " " + str(nc)
