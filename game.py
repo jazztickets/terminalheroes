@@ -331,13 +331,14 @@ class Game:
 				dps_increase_rate = str(round(damage * attack_rate_increase, 2))
 
 			# draw upgrades
+			colors = [ curses.A_NORMAL, curses.A_BOLD ]
 			data = []
 			data.append([curses.A_BOLD, 'Key', 'Upgrade', 'Value', 'Increase', dps_increase_header, 'Cost'])
-			data.append([curses.color_pair((state.gold >= state.damage.cost) + 1), '[u]', 'Damage', str(damage), str(damage_increase), dps_increase_damage, str(state.damage.cost) + 'g'])
-			data.append([curses.color_pair((state.gold >= state.damage_increase.cost) + 1), '[i]', 'Damage Increase', str(damage_increase), str(damage_increase_amount), '', str(state.damage_increase.cost) + 'g'])
-			data.append([curses.color_pair((state.gold >= state.rate.cost) + 1), '[o]', 'Attack Rate', str(attack_rate), str(attack_rate_increase), dps_increase_rate, str(state.rate.cost) + 'g'])
-			data.append([curses.color_pair((state.gold >= state.rebirth.cost) + 1), '[r]', 'Rebirths', str(rebirths), str(1), '', str(state.rebirth.cost) + 'g'])
-			data.append([curses.color_pair((state.rebirth.value >= state.evolve.cost) + 1), '[e]', 'Evolves', str(evolves), str(1), '', str(state.evolve.cost) + ' rebirths'])
+			data.append([colors[state.gold >= state.damage.cost], '[u]', 'Damage', str(damage), str(damage_increase), dps_increase_damage, str(state.damage.cost) + 'g'])
+			data.append([colors[state.gold >= state.damage_increase.cost], '[i]', 'Damage Increase', str(damage_increase), str(damage_increase_amount), '', str(state.damage_increase.cost) + 'g'])
+			data.append([colors[state.gold >= state.rate.cost], '[o]', 'Attack Rate', str(attack_rate), str(attack_rate_increase), dps_increase_rate, str(state.rate.cost) + 'g'])
+			data.append([colors[state.gold >= state.rebirth.cost], '[r]', 'Rebirths', str(rebirths), str(1), '', str(state.rebirth.cost) + 'g'])
+			data.append([colors[state.rebirth.value >= state.evolve.cost], '[e]', 'Evolves', str(evolves), str(1), '', str(state.evolve.cost) + ' rebirths'])
 			data.append([1, '[s]', 'Shop', '', '', '', ''])
 
 			sizes = get_max_sizes(data, 2)
