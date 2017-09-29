@@ -18,9 +18,9 @@ MODE_SHOP = 3
 HEALTH_WIDTH = 20
 UPGRADES = [
 	[ "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded" , 500     , 0,    0,   0  ],
-	[ "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"     , 10000   , 0,    0,   0  ],
-	[ "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                     , 100000  , 0,    0,   0  ],
-	[ "can_evolve"                  , "Game is Hard IV"    , "Allow Evolving"                       , 1000000 , 0,    0,   0  ],
+	[ "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"     , 5000    , 0,    0,   0  ],
+	[ "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                     , 20000   , 0,    0,   0  ],
+	[ "can_evolve"                  , "Game is Hard IV"    , "Allow Evolving"                       , 500000  , 0,    0,   0  ],
 	[ "show_dps"                    , "Math is Hard I"     , "Show DPS"                             , 20000   , 0,    1,   0  ],
 	[ "show_dps_increase"           , "Math is Hard II"    , "Show DPS increase next to upgrades"   , 100000  , 0,    20,  0  ],
 	[ "show_highest_level"          , "Memory is Hard I"   , "Show Highest Level"                   , 50000   , 1000, 0,   1  ],
