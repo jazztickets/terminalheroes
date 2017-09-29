@@ -183,7 +183,7 @@ class Game:
 				self.done = 1
 		elif self.mode == MODE_REBIRTH:
 			confirm = False
-			if c == ord('q') or escape:
+			if c == ord('r') or escape:
 				self.mode = MODE_PLAY
 			elif c == ord('1'):
 				self.state.damage_increase_amount += self.rebirth_values[0]
@@ -214,7 +214,7 @@ class Game:
 
 		elif self.mode == MODE_EVOLVE:
 			confirm = False
-			if c == ord('q') or escape:
+			if c == ord('e') or escape:
 				self.mode = MODE_PLAY
 			elif c == ord('1'):
 				self.state.base_damage_increase += self.evolve_values[0]
@@ -242,7 +242,7 @@ class Game:
 				key = c - ord('1') + 1
 				self.buy_shop_upgrade(key)
 
-			if c == ord('q') or escape:
+			if c == ord('s') or escape:
 				self.mode = MODE_PLAY
 
 		#if c != -1:
@@ -371,7 +371,7 @@ class Game:
 			game.win_game.addstr(y, 0, "[3] Upgrade Gold Multiplier by " + str(self.rebirth_values[2]))
 
 			y += 2
-			game.win_game.addstr(y, 0, "[q] Cancel")
+			game.win_game.addstr(y, 0, "[r] Cancel")
 
 		elif self.mode == MODE_EVOLVE:
 
@@ -385,7 +385,7 @@ class Game:
 			game.win_game.addstr(y, 0, "[2] Upgrade Base Attack Rate by " + str(self.evolve_values[1]))
 
 			y += 2
-			game.win_game.addstr(y, 0, "[q] Cancel")
+			game.win_game.addstr(y, 0, "[e] Cancel")
 
 		elif self.mode == MODE_SHOP:
 
@@ -435,7 +435,7 @@ class Game:
 				y += 1
 				key += 1
 
-			game.win_game.addstr(y, 0, "[q] Cancel")
+			game.win_game.addstr(y, 0, "[s] Cancel")
 
 		self.win_game.noutrefresh()
 		self.win_message.noutrefresh()
