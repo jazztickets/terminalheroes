@@ -243,6 +243,7 @@ class Game:
 				self.state.calc()
 				self.init_level()
 				self.save()
+				self.mode = MODE_PLAY
 
 		elif self.mode == MODE_EVOLVE:
 			confirm = False
@@ -269,6 +270,7 @@ class Game:
 				self.state.calc()
 				self.init_level()
 				self.save()
+				self.mode = MODE_PLAY
 
 		elif self.mode == MODE_SHOP:
 
@@ -527,7 +529,6 @@ class Game:
 			return str(int(time / 86400)) + "d" + str(int(time / 3600 % 24)) + "h"
 
 	def init_level(self):
-		self.mode = MODE_PLAY
 		self.state.max_health = int(math.pow(self.state.level, self.state.health_increase_exponent) * self.state.health_multiplier)
 		if self.state.health <= 0:
 			self.state.health = self.state.max_health
@@ -552,21 +553,20 @@ class Game:
 
 	def update(self, frametime):
 		self.state.highest['time'] += frametime
-		self.save_timer += frametime
 
+		# handle autosave
+		self.save_timer += frametime
 		if self.save_timer >= AUTOSAVE_TIME:
 			self.save_timer = 0
 			self.save()
 
-		if self.mode == MODE_PLAY:
-			self.state.attack_timer += frametime
-
-			# make an attack
-			period = 1.0 / self.state.attack_rate.value
-			while self.state.attack_timer >= period:
-				self.state.attack_timer -= period
-				self.state.health -= self.state.damage.value
-				self.update_health()
+		# make an attack
+		period = 1.0 / self.state.attack_rate.value
+		self.state.attack_timer += frametime
+		while self.state.attack_timer >= period:
+			self.state.attack_timer -= period
+			self.state.health -= self.state.damage.value
+			self.update_health()
 
 	def load(self):
 		try:
