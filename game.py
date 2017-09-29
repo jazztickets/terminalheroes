@@ -15,6 +15,7 @@ MODE_PLAY = 0
 MODE_REBIRTH = 1
 MODE_EVOLVE = 2
 MODE_SHOP = 3
+HEALTH_WIDTH = 20
 UPGRADES = [
 	[ "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded" , 500     , 0,    0,   0  ],
 	[ "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"     , 10000   , 0,    0,   0  ],
@@ -25,6 +26,7 @@ UPGRADES = [
 	[ "show_highest_level"          , "Memory is Hard I"   , "Show Highest Level"                   , 50000   , 1000, 0,   1  ],
 	[ "show_highest_dps"            , "Memory is Hard II"  , "Show Highest DPS"                     , 100000  , 2000, 5,   1  ],
 	[ "show_elapsed"                , "Memory is Hard III" , "Show Elapsed Time"                    , 150000  , 3000, 10,  5  ],
+	[ "show_health_percent"         , "Reading is Hard I"  , "Show Health Percent"                  , 500000  , 0,    1,   0  ],
 ]
 
 def get_max_sizes(data, padding):
@@ -297,6 +299,7 @@ class Game:
 			self.state.gold = 5000000
 			self.state.level = 5000
 			self.state.rebirth.value = 100
+			self.state.evolve.value = 100
 
 		curses.doupdate()
 
@@ -387,23 +390,29 @@ class Game:
 				data.append([curses.A_NORMAL, 'Highest Level', str(state.highest['level'])])
 			if 'show_highest_dps' in state.upgrades:
 				data.append([curses.A_NORMAL, 'Highest DPS', str(state.highest['dps'])])
-			#data.append([curses.A_NORMAL, 'Highest Rebirths', str(state.highest['rebirths'])])
-			#data.append([curses.A_NORMAL, 'Highest Evolves', str(state.highest['evolves'])])
 			if 'show_elapsed' in state.upgrades:
 				data.append([curses.A_NORMAL, 'Elapsed Time', self.get_time(state.highest['time'])])
+
+			#data.append([curses.A_NORMAL, 'Highest Rebirths', str(state.highest['rebirths'])])
+			#data.append([curses.A_NORMAL, 'Highest Evolves', str(state.highest['evolves'])])
 
 			sizes = get_max_sizes(data, 2)
 			y = self.draw_table(y, "{0:%s} {1:%s}" % (*sizes,), data)
 			y += 1
 
+			# draw health bar
+			health_bar_header = ""
+			health_bar_string = ""
+			if 'show_health_percent' in state.upgrades:
+				health_bars = int(HEALTH_WIDTH * (state.health / state.max_health))
+				health_bar_header = "Percent"
+				health_bar_string = ("#" * health_bars).ljust(HEALTH_WIDTH, "-")
+				health_bar_string = "%s %.2f%%" % (health_bar_string, 100 * state.health / state.max_health)
+
 			# draw enemy
 			data = []
-			data.append([curses.A_BOLD, 'Level', 'Health', 'Max Health', '%'])
-			data.append([curses.A_NORMAL, str(state.level), str(int(state.health)), str(int(state.max_health)), "%.2f " % (100 * state.health / state.max_health)])
-
-#			# draw health bar
-#			health_bars = int(HEALTH_WIDTH * (state.health / state.max_health))
-#			string = ("#" * health_bars).ljust(HEALTH_WIDTH, "-")
+			data.append([curses.A_BOLD, 'Level', 'Health', 'Max Health', health_bar_header])
+			data.append([curses.A_NORMAL, str(state.level), str(int(state.health)), str(int(state.max_health)), health_bar_string])
 
 			sizes = get_max_sizes(data, 2)
 			y = self.draw_table(y, "{0:%s} {1:%s} {2:%s} {3:%s}" % (*sizes,), data)
