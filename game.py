@@ -7,8 +7,8 @@ import random
 import sys
 import pickle
 
-DEVMODE = 0
-GAME_VERSION = 6
+DEVMODE = 1
+GAME_VERSION = 7
 TIME_SCALE = 1
 AUTOSAVE_TIME = 60
 MODE_PLAY = 0
@@ -65,11 +65,18 @@ class State:
 			'gold_multiplier'          : 1.0,
 			'gold_multiplier_increase' : 0.05,
 			'level'                    : 1,
+			'upgrade_price'            : 1.0,
+			'upgrade_price_growth'     : 1.2,
+			'rebirth_growth'           : 1.1,
+			'evolve_growth'            : 1.1,
+			'shop_price'               : 1.0,
+			'health_adjust'            : 1.0,
+			'health_growth'            : 1.5,
 		}
-		self.damage = Upgrade(self.base['damage'], 5, 1.2)
-		self.damage_increase = Upgrade(self.base['damage_increase'], 50, 1.2)
+		self.damage = Upgrade(self.base['damage'], 5, self.base['upgrade_price_growth'])
+		self.damage_increase = Upgrade(self.base['damage_increase'], 50, self.base['upgrade_price_growth'])
 		self.damage_increase_amount = self.base['damage_increase_amount']
-		self.attack_rate = Upgrade(self.base['attack_rate'], 100, 1.2)
+		self.attack_rate = Upgrade(self.base['attack_rate'], 100, self.base['upgrade_price_growth'])
 		self.attack_rate_increase = Upgrade(self.base['attack_rate_increase'], 0, 0)
 		self.gold = self.base['gold']
 		self.gold_multiplier = self.base['gold_multiplier']
@@ -78,10 +85,10 @@ class State:
 		self.health = 0
 		self.max_health = 0
 		self.health_multiplier = 1.0
-		self.health_increase_exponent = 1.5
+		self.health_increase_exponent = self.base['health_growth']
 		self.attack_timer = 0
-		self.rebirth = Upgrade(0, 10000, 1.1)
-		self.evolve = Upgrade(0, 10, 1.1)
+		self.rebirth = Upgrade(0, 10000, self.base['rebirth_growth'])
+		self.evolve = Upgrade(0, 10, self.base['evolve_growth'])
 		self.highest = {
 			'dps'       : 0,
 			'level'     : 0,
@@ -90,8 +97,9 @@ class State:
 			'evolves'   : 0,
 		}
 		self.upgrades = {}
+		self.calc()
 
-	# calculate base stats after upgrade/evolve
+	# set values from base stats after rebirth/evolve
 	def calc(self):
 		self.damage.value = self.base['damage']
 		self.damage_increase.value = self.base['damage_increase']
