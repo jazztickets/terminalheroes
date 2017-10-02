@@ -118,7 +118,7 @@ class Game:
 		self.max_fps = 150.0
 		self.timestep = 1 / 100.0
 		self.mode = MODE_PLAY
-		self.rebirth_values = [ 1.0, 0.05, 0.05 ]
+		self.rebirth_values = [ 1.0, 0.05 ]
 		self.evolve_values = [ 10.0, 1.0 ]
 		self.cursor = 0
 		self.message = ""
@@ -229,9 +229,6 @@ class Game:
 				confirm = True
 			elif c == ord('2'):
 				self.state.attack_rate_increase.value += self.rebirth_values[1]
-				confirm = True
-			elif c == ord('3'):
-				self.state.gold_multiplier += self.rebirth_values[2]
 				confirm = True
 
 			if confirm:
@@ -395,7 +392,8 @@ class Game:
 			if 'show_dps' in state.upgrades:
 				data.append([curses.A_NORMAL, 'DPS', str(dps)])
 			data.append([curses.A_NORMAL, 'Gold', str(gold)])
-			data.append([curses.A_NORMAL, 'Gold Multiplier', str(gold_multiplier)])
+			if state.gold_multiplier != 1:
+				data.append([curses.A_NORMAL, 'Gold Multiplier', str(gold_multiplier)])
 			if 'show_highest_level' in state.upgrades:
 				data.append([curses.A_NORMAL, 'Highest Level', str(state.highest['level'])])
 			if 'show_highest_dps' in state.upgrades:
@@ -438,9 +436,6 @@ class Game:
 
 				y += 1
 				game.win_game.addstr(y, 0, "[2] Upgrade Attack Rate Increase by " + str(self.rebirth_values[1]))
-
-				y += 1
-				game.win_game.addstr(y, 0, "[3] Upgrade Gold Multiplier by " + str(self.rebirth_values[2]))
 
 				y += 2
 				game.win_game.addstr(y, 0, "[r] Cancel")
