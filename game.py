@@ -8,7 +8,7 @@ import sys
 import pickle
 
 DEVMODE = 0
-GAME_VERSION = 7
+GAME_VERSION = 8
 TIME_SCALE = 1
 AUTOSAVE_TIME = 60
 MODE_PLAY = 0
@@ -17,9 +17,9 @@ MODE_EVOLVE = 2
 MODE_SHOP = 3
 HEALTH_WIDTH = 20
 UPGRADES = [
-	[ "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded" , 500     , 0,    0,   0  ],
-	[ "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"     , 5000    , 0,    0,   0  ],
-	[ "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                     , 20000   , 0,    0,   0  ],
+	[ "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded" , 250     , 0,    0,   0  ],
+	[ "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"     , 1000    , 0,    0,   0  ],
+	[ "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                     , 5000    , 0,    0,   0  ],
 	[ "can_evolve"                  , "Game is Hard IV"    , "Allow Evolving"                       , 500000  , 0,    0,   0  ],
 	[ "show_dps"                    , "Math is Hard I"     , "Show DPS"                             , 20000   , 0,    1,   0  ],
 	[ "show_dps_increase"           , "Math is Hard II"    , "Show DPS increase next to upgrades"   , 100000  , 0,    20,  0  ],
@@ -92,11 +92,24 @@ class State:
 		self.highest = {
 			'dps'       : 0,
 			'level'     : 0,
-			'time'      : 0,
 			'rebirths'  : 0,
 			'evolves'   : 0,
 		}
+		self.total = {
+			'time'      : 0,
+			'kills'     : 0,
+			'gold'      : 0,
+			'upgrades'  : 0,
+			'rebirths'  : 0,
+			'evolves'   : 0,
+		}
+		self.since = {
+			'time'      : 0,
+			'gold'      : 0,
+			'upgrades'  : 0,
+		}
 		self.upgrades = {}
+		self.builds = {}
 		self.calc()
 
 	# set values from base stats after rebirth/evolve
@@ -104,6 +117,14 @@ class State:
 		self.damage.value = self.base['damage']
 		self.damage_increase.value = self.base['damage_increase']
 		self.attack_rate.value = self.base['attack_rate']
+
+	# copy values after reset
+	def copy(self, existing):
+		self.base = existing.base
+		self.upgrades = existing.upgrades
+		self.highest = existing.highest
+		self.total = existing.total
+		self.builds = existing.builds
 
 class Game:
 
@@ -206,14 +227,20 @@ class Game:
 				if self.state.gold >= self.state.damage.cost:
 					self.state.gold -= self.state.damage.cost
 					self.state.damage.buy(self.state.damage_increase.value)
+					self.state.total['upgrades'] += 1
+					self.state.since['upgrades'] += 1
 			elif c == ord('i') or c == ord('2'):
 				if 'can_upgrade_damage_increase' in self.state.upgrades and self.state.gold >= self.state.damage_increase.cost:
 					self.state.gold -= self.state.damage_increase.cost
 					self.state.damage_increase.buy(self.state.damage_increase_amount)
+					self.state.total['upgrades'] += 1
+					self.state.since['upgrades'] += 1
 			elif c == ord('o') or c == ord('3'):
 				if 'can_upgrade_attack_rate' in self.state.upgrades and self.state.gold >= self.state.attack_rate.cost:
 					self.state.gold -= self.state.attack_rate.cost
 					self.state.attack_rate.buy(self.state.attack_rate_increase.value)
+					self.state.total['upgrades'] += 1
+					self.state.since['upgrades'] += 1
 			elif c == ord('Q'):
 				self.done = 1
 			elif c == ord('q') or escape:
@@ -237,14 +264,11 @@ class Game:
 					self.state.highest['rebirths'] = self.state.rebirth.value
 				old_state = self.state
 				self.state = State(self.version)
-				self.state.base = old_state.base
-				self.state.upgrades = old_state.upgrades
-				self.state.highest = old_state.highest
+				self.state.copy(old_state)
 				self.state.rebirth = old_state.rebirth
 				self.state.evolve = old_state.evolve
 				self.state.damage_increase_amount = old_state.damage_increase_amount
 				self.state.attack_rate_increase.value = old_state.attack_rate_increase.value
-				self.state.gold_multiplier = old_state.gold_multiplier
 				self.state.calc()
 				self.init_level()
 				self.save()
@@ -268,9 +292,7 @@ class Game:
 					self.state.highest['evolves'] = self.state.evolve.value
 				old_state = self.state
 				self.state = State(self.version)
-				self.state.base = old_state.base
-				self.state.upgrades = old_state.upgrades
-				self.state.highest = old_state.highest
+				self.state.copy(old_state)
 				self.state.evolve = old_state.evolve
 				self.state.calc()
 				self.init_level()
@@ -399,7 +421,13 @@ class Game:
 			if 'show_highest_dps' in state.upgrades:
 				data.append([curses.A_NORMAL, 'Highest DPS', str(state.highest['dps'])])
 			if 'show_elapsed' in state.upgrades:
-				data.append([curses.A_NORMAL, 'Elapsed Time', self.get_time(state.highest['time'])])
+				data.append([curses.A_NORMAL, 'Elapsed Time', self.get_time(state.total['time'])])
+			#data.append([curses.A_NORMAL, 'Time Since', self.get_time(state.since['time'])])
+			#data.append([curses.A_NORMAL, 'Upgrades Since', str(state.since['upgrades'])])
+			#data.append([curses.A_NORMAL, 'Gold Since', str(state.since['gold'])])
+			#data.append([curses.A_NORMAL, 'Total Gold', str(state.total['gold'])])
+			#data.append([curses.A_NORMAL, 'Total Upgrades', str(state.total['upgrades'])])
+			#data.append([curses.A_NORMAL, 'Total Kills', str(state.total['kills'])])
 
 			#data.append([curses.A_NORMAL, 'Highest Rebirths', str(state.highest['rebirths'])])
 			#data.append([curses.A_NORMAL, 'Highest Evolves', str(state.highest['evolves'])])
@@ -553,9 +581,13 @@ class Game:
 
 		self.message = "You earned " + str(total_reward) + " gold!"
 		self.state.gold += total_reward
+		self.state.total['gold'] += total_reward
+		self.state.since['gold'] += total_reward
+		self.state.total['kills'] += 1
 
 	def update(self, frametime):
-		self.state.highest['time'] += frametime
+		self.state.total['time'] += frametime
+		self.state.since['time'] += frametime
 
 		# handle autosave
 		self.save_timer += frametime
