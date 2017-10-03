@@ -8,7 +8,7 @@ import sys
 import pickle
 
 DEVMODE = 0
-GAME_VERSION = 9
+GAME_VERSION = 10
 TIME_SCALE = 1
 AUTOSAVE_TIME = 60
 MODE_PLAY = 0
@@ -16,7 +16,7 @@ MODE_REBIRTH = 1
 MODE_EVOLVE = 2
 MODE_SHOP = 3
 HEALTH_WIDTH = 20
-UPGRADES = [
+PERKS = [
 	[ 1,  "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded"              , 250     , 0,    0,   0   ],
 	[ 1,  "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"                  , 1000    , 0,    0,   0   ],
 	[ 1,  "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                                  , 5000    , 0,    0,   0   ],
@@ -41,6 +41,18 @@ def get_max_sizes(data, padding):
 
 	return sizes
 
+class Perk:
+
+	def __init__(self, ranks, name, label, info, cost, level, rebirths, evolves):
+		self.ranks = ranks
+		self.name = name
+		self.label = label
+		self.info = info
+		self.cost = cost
+		self.level = level
+		self.rebirths = rebirths
+		self.evolves = evolves
+
 class Upgrade:
 
 	def __init__(self, value, cost, cost_multiplier):
@@ -52,10 +64,18 @@ class Upgrade:
 		self.cost = int(self.cost * self.cost_multiplier)
 		self.value += amount
 
+class Cost:
+
+	def __init__(self, growth, multiplier):
+		self.growth = growth
+		self.multiplier = multiplier
+
 class State:
 
 	def __init__(self, version):
 		self.version = version
+
+		# base stats
 		self.base = {
 			'level'                    : 1,
 			'damage'                   : 1.0,
@@ -66,39 +86,26 @@ class State:
 			'gold'                     : 0,
 			'gold_multiplier'          : 1.0,
 			'gold_multiplier_increase' : 0.05,
-			'upgrade_price_growth'     : 1.2,
-			'upgrade_price_multiplier' : 1.0,
-			'rebirth_growth'           : 1.1,
-			'rebirth_price_multiplier' : 1.0,
-			'evolve_growth'            : 1.1,
-			'evolve_price_multiplier'  : 1.0,
-			'health_growth'            : 1.5,
-			'health_multiplier'        : 1.0,
-			'shop_growth'              : 10.0,
-			'shop_multiplier'          : 1.0,
 		}
-		self.damage = Upgrade(self.base['damage'], 5, self.base['upgrade_price_growth'])
-		self.damage_increase = Upgrade(self.base['damage_increase'], 50, self.base['upgrade_price_growth'])
-		self.damage_increase_amount = Upgrade(self.base['damage_increase_amount'], 1000, self.base['upgrade_price_growth'])
-		self.attack_rate = Upgrade(self.base['attack_rate'], 100, self.base['upgrade_price_growth'])
-		self.attack_rate_increase = Upgrade(self.base['attack_rate_increase'], 10000, self.base['upgrade_price_growth'])
-		self.gold = self.base['gold']
-		self.gold_multiplier = self.base['gold_multiplier']
-		self.gold_increase = Upgrade(self.base['gold_multiplier_increase'], 0, 0)
-		self.level = self.base['level']
-		self.health = 0
-		self.max_health = 0
-		self.health_multiplier = 1.0
-		self.health_increase_exponent = self.base['health_growth']
-		self.attack_timer = 0
-		self.rebirth = Upgrade(0, 10000, self.base['rebirth_growth'])
-		self.evolve = Upgrade(0, 10, self.base['evolve_growth'])
+
+		# values associated with cost and increasing prices
+		self.cost = {
+			'upgrade'   : Cost(1.2, 1),
+			'shop'      : Cost(10.0, 1),
+			'rebirth'   : Cost(1.1, 1),
+			'evolve'    : Cost(1.1, 1),
+			'health'    : Cost(1.5, 1),
+		}
+
+		# stats for records
 		self.highest = {
 			'dps'       : 0,
 			'level'     : 0,
 			'rebirths'  : 0,
 			'evolves'   : 0,
 		}
+
+		# stats for running counts
 		self.total = {
 			'time'      : 0,
 			'kills'     : 0,
@@ -107,13 +114,30 @@ class State:
 			'rebirths'  : 0,
 			'evolves'   : 0,
 		}
+
+		# stats since last rebirth/evolve/reset
 		self.since = {
 			'time'      : 0,
 			'gold'      : 0,
 			'upgrades'  : 0,
 		}
-		self.upgrades = {}
+
+		self.level = self.base['level']
+		self.damage = Upgrade(self.base['damage'], 5, self.cost['upgrade'].growth)
+		self.damage_increase = Upgrade(self.base['damage_increase'], 50, self.cost['upgrade'].growth)
+		self.damage_increase_amount = Upgrade(self.base['damage_increase_amount'], 1000, self.cost['upgrade'].growth)
+		self.attack_rate = Upgrade(self.base['attack_rate'], 100, self.cost['upgrade'].growth)
+		self.attack_rate_increase = Upgrade(self.base['attack_rate_increase'], 10000, self.cost['upgrade'].growth)
+		self.gold = self.base['gold']
+		self.gold_multiplier = self.base['gold_multiplier']
+		self.gold_increase = Upgrade(self.base['gold_multiplier_increase'], 0, 0)
+		self.rebirth = Upgrade(0, 10000, self.cost['rebirth'].growth)
+		self.evolve = Upgrade(0, 10, self.cost['evolve'].growth)
+		self.perks = {}
 		self.builds = {}
+		self.health = 0
+		self.max_health = 0
+		self.attack_timer = 0
 		self.calc()
 
 	# set values from base stats after rebirth/evolve
@@ -125,7 +149,7 @@ class State:
 	# copy values after reset
 	def copy(self, existing):
 		self.base = existing.base
-		self.upgrades = existing.upgrades
+		self.perks = existing.perks
 		self.highest = existing.highest
 		self.total = existing.total
 		self.builds = existing.builds
@@ -217,11 +241,11 @@ class Game:
 				self.init_level()
 				self.message = "New game!"
 			elif c == ord('r'):
-				if 'can_rebirth' in self.state.upgrades and self.state.gold >= self.state.rebirth.cost:
+				if 'can_rebirth' in self.state.perks and self.state.gold >= self.state.rebirth.cost:
 					self.mode = MODE_REBIRTH
 					self.message = "[r] Cancel"
 			elif c == ord('e'):
-				if 'can_evolve' in self.state.upgrades and self.state.rebirth.value >= self.state.evolve.cost:
+				if 'can_evolve' in self.state.perks and self.state.rebirth.value >= self.state.evolve.cost:
 					self.mode = MODE_EVOLVE
 					self.message = "[e] Cancel"
 			elif c == ord('s'):
@@ -230,10 +254,10 @@ class Game:
 			elif c == ord('u') or c == ord('1'):
 				self.buy_upgrade(self.state.damage, self.state.damage_increase.value)
 			elif c == ord('i') or c == ord('2'):
-				if 'can_upgrade_damage_increase' in self.state.upgrades:
+				if 'can_upgrade_damage_increase' in self.state.perks:
 					self.buy_upgrade(self.state.damage_increase, self.state.damage_increase_amount.value)
 			elif c == ord('o') or c == ord('3'):
-				if 'can_upgrade_attack_rate' in self.state.upgrades:
+				if 'can_upgrade_attack_rate' in self.state.perks:
 					self.buy_upgrade(self.state.attack_rate, self.state.attack_rate_increase.value)
 			elif c == ord('Q'):
 				self.done = 1
@@ -300,11 +324,11 @@ class Game:
 				self.message = ""
 				self.cursor = 0
 			elif c == 10:
-				self.buy_shop_upgrade(self.cursor)
+				self.buy_perk(self.cursor)
 			elif key_up or c == ord('j'):
 				self.cursor += 1
-				if self.cursor > len(UPGRADES)-1:
-					self.cursor = len(UPGRADES)-1
+				if self.cursor > len(PERKS)-1:
+					self.cursor = len(PERKS)-1
 			elif key_down or c == ord('k'):
 				self.cursor -= 1
 				if self.cursor < 0:
@@ -372,33 +396,33 @@ class Game:
 			damage_increase_amount = round(state.damage_increase_amount.value, 2)
 			attack_rate = round(state.attack_rate.value, 2)
 			attack_rate_increase = round(state.attack_rate_increase.value, 2)
-			damage_cost = int(state.damage.cost * state.base['upgrade_price_multiplier'])
-			damage_increase_cost = int(state.damage_increase.cost * state.base['upgrade_price_multiplier'])
-			damage_increase_amount_cost = int(state.damage_increase_amount.cost * state.base['upgrade_price_multiplier'])
-			attack_rate_cost = int(state.attack_rate.cost * state.base['upgrade_price_multiplier'])
-			attack_rate_increase_cost = int(state.attack_rate_increase.cost * state.base['upgrade_price_multiplier'])
+			damage_cost = int(state.damage.cost * state.cost['upgrade'].multiplier)
+			damage_increase_cost = int(state.damage_increase.cost * state.cost['upgrade'].multiplier)
+			damage_increase_amount_cost = int(state.damage_increase_amount.cost * state.cost['upgrade'].multiplier)
+			attack_rate_cost = int(state.attack_rate.cost * state.cost['upgrade'].multiplier)
+			attack_rate_increase_cost = int(state.attack_rate_increase.cost * state.cost['upgrade'].multiplier)
 
 			# determine dps increase data
 			dps_increase_header = ""
 			dps_increase_damage = ""
 			dps_increase_rate = ""
-			if 'show_dps_increase' in state.upgrades:
+			if 'show_dps_increase' in state.perks:
 				dps_increase_header = "DPS"
 				dps_increase_damage = str(round(damage_increase * state.attack_rate.value, 2))
 				dps_increase_rate = str(round(damage * attack_rate_increase, 2))
 
-			# draw upgrades
+			# draw perks
 			colors = [ curses.A_NORMAL, curses.A_BOLD ]
 			data = []
 			data.append([colors[1], 'Key', 'Upgrade', 'Base', 'Current', 'Increase', dps_increase_header, 'Cost'])
 			data.append([colors[state.gold >= damage_cost], '[u]', 'Damage', str(state.base['damage']), str(damage), str(damage_increase), dps_increase_damage, str(damage_cost) + 'g'])
-			if 'can_upgrade_damage_increase' in state.upgrades:
+			if 'can_upgrade_damage_increase' in state.perks:
 				data.append([colors[state.gold >= damage_increase_cost], '[i]', 'Damage Increase', str(state.base['damage_increase']), str(damage_increase), str(damage_increase_amount), '', str(damage_increase_cost) + 'g'])
-			if 'can_upgrade_attack_rate' in state.upgrades:
+			if 'can_upgrade_attack_rate' in state.perks:
 				data.append([colors[state.gold >= attack_rate_cost], '[o]', 'Attack Rate', str(state.base['attack_rate']), str(attack_rate), str(attack_rate_increase), dps_increase_rate, str(attack_rate_cost) + 'g'])
-			if 'can_rebirth' in state.upgrades:
+			if 'can_rebirth' in state.perks:
 				data.append([colors[state.gold >= state.rebirth.cost], '[r]', 'Rebirths', '', str(rebirths), str(1), '', str(state.rebirth.cost) + 'g'])
-			if 'can_evolve' in state.upgrades:
+			if 'can_evolve' in state.perks:
 				data.append([colors[state.rebirth.value >= state.evolve.cost], '[e]', 'Evolves', '', str(evolves), str(1), '', str(state.evolve.cost) + ' rebirths'])
 			data.append([colors[0], '[s]', 'Shop', '', '', '', '', ''])
 
@@ -410,16 +434,16 @@ class Game:
 			# draw stats
 			data = []
 			data.append([curses.A_BOLD, 'Stats', 'Value'])
-			if 'show_dps' in state.upgrades:
+			if 'show_dps' in state.perks:
 				data.append([curses.A_NORMAL, 'DPS', str(dps)])
 			data.append([curses.A_NORMAL, 'Gold', str(gold)])
 			if state.gold_multiplier != 1:
 				data.append([curses.A_NORMAL, 'Gold Multiplier', str(gold_multiplier)])
-			if 'show_highest_level' in state.upgrades:
+			if 'show_highest_level' in state.perks:
 				data.append([curses.A_NORMAL, 'Highest Level', str(state.highest['level'])])
-			if 'show_highest_dps' in state.upgrades:
+			if 'show_highest_dps' in state.perks:
 				data.append([curses.A_NORMAL, 'Highest DPS', str(state.highest['dps'])])
-			if 'show_elapsed' in state.upgrades:
+			if 'show_elapsed' in state.perks:
 				data.append([curses.A_NORMAL, 'Elapsed Time', self.get_time(state.total['time'])])
 			#data.append([curses.A_NORMAL, 'Time Since', self.get_time(state.since['time'])])
 			#data.append([curses.A_NORMAL, 'Upgrades Since', str(state.since['upgrades'])])
@@ -438,7 +462,7 @@ class Game:
 			# draw health bar
 			health_bar_header = ""
 			health_bar_string = ""
-			if 'show_health_percent' in state.upgrades:
+			if 'show_health_percent' in state.perks:
 				health_bars = int(HEALTH_WIDTH * (state.health / state.max_health))
 				health_bar_header = "Percent"
 				health_bar_string = ("#" * health_bars).ljust(HEALTH_WIDTH, "-")
@@ -503,26 +527,26 @@ class Game:
 			index = 0
 			data = []
 			data.append([curses.A_BOLD, "Rank", "Name", "Description", "Cost", "Level", "Rebirths", "Evolves"])
-			for upgrade in UPGRADES:
+			for perk in PERKS:
 
 				rank = 0
-				if upgrade[1] in self.state.upgrades:
-					rank = self.state.upgrades[upgrade[1]]
+				if perk[1] in self.state.perks:
+					rank = self.state.perks[perk[1]]
 
-				cost = self.get_shop_cost(rank, index)
+				cost = self.get_perk_cost(rank, index)
 
 				color = 3
 				if self.cursor == index:
-					if upgrade[1] in self.state.upgrades:
+					if perk[1] in self.state.perks:
 						color = 5
 					else:
 						color = 2
-				elif rank == upgrade[0]:
+				elif rank == perk[0]:
 					color = 4
-				elif self.can_buy_shop_item(rank, index):
+				elif self.can_buy_perk(rank, index):
 					color = 1
 
-				data.append([curses.color_pair(color), str(rank) + "/" + str(upgrade[0]), upgrade[2], upgrade[3], str(cost) + 'g', str(upgrade[5]), str(upgrade[6]), str(upgrade[7])])
+				data.append([curses.color_pair(color), str(rank) + "/" + str(perk[0]), perk[2], perk[3], str(cost) + 'g', str(perk[5]), str(perk[6]), str(perk[7])])
 				index += 1
 
 			# draw upgrade table
@@ -534,48 +558,48 @@ class Game:
 		self.win_message.noutrefresh()
 		curses.doupdate()
 
-	def get_shop_cost(self, rank, index):
-		upgrade = UPGRADES[index]
-		if rank >= upgrade[0]:
-			rank = upgrade[0]-1
+	def get_perk_cost(self, rank, index):
+		perk = PERKS[index]
+		if rank >= perk[0]:
+			rank = perk[0]-1
 
-		return int(upgrade[4] * math.pow(self.state.base['shop_growth'], rank))
+		return int(perk[4] * math.pow(self.state.cost['shop'].growth, rank))
 
-	def can_buy_shop_item(self, rank, index):
-		upgrade = UPGRADES[index]
-		if self.state.rebirth.value < upgrade[6]:
+	def can_buy_perk(self, rank, index):
+		perk = PERKS[index]
+		if self.state.rebirth.value < perk[6]:
 			return False
 
-		if self.state.evolve.value < upgrade[7]:
+		if self.state.evolve.value < perk[7]:
 			return False
 
-		if self.state.level < upgrade[5]:
+		if self.state.level < perk[5]:
 			return False
 
-		return self.state.gold >= self.get_shop_cost(rank, index)
+		return self.state.gold >= self.get_perk_cost(rank, index)
 
-	def buy_shop_upgrade(self, index):
-		upgrade = UPGRADES[index]
+	def buy_perk(self, index):
+		perk = PERKS[index]
 
 		# get existing upgrade
 		has_upgrade = False
 		rank = 0
 		next_rank = 1
-		if upgrade[1] in self.state.upgrades:
+		if perk[1] in self.state.perks:
 			has_upgrade = True
-			rank = self.state.upgrades[upgrade[1]]
+			rank = self.state.perks[perk[1]]
 			next_rank = rank + 1
 
 		# check buy conditions
-		if rank < upgrade[0] and self.can_buy_shop_item(rank, index):
-			self.state.upgrades[upgrade[1]] = next_rank
-			self.state.gold -= self.get_shop_cost(rank, index)
-			self.message = "Bought " + upgrade[1]
-			if upgrade[1] == "reduce_upgrade_price":
-				self.state.base['upgrade_price_multiplier'] = 1.0 - next_rank * 0.05
+		if rank < perk[0] and self.can_buy_perk(rank, index):
+			self.state.perks[perk[1]] = next_rank
+			self.state.gold -= self.get_perk_cost(rank, index)
+			self.message = "Bought " + perk[1]
+			if perk[1] == "reduce_upgrade_price":
+				self.state.cost['upgrade'].multiplier = 1.0 - next_rank * 0.05
 
 	def buy_upgrade(self, target, value):
-		cost = int(target.cost * self.state.base['upgrade_price_multiplier'])
+		cost = int(target.cost * self.state.cost['upgrade'].multiplier)
 		if self.state.gold >= cost:
 			self.state.gold -= cost
 			self.state.total['upgrades'] += 1
@@ -593,7 +617,7 @@ class Game:
 			return str(int(time / 86400)) + "d" + str(int(time / 3600 % 24)) + "h"
 
 	def init_level(self):
-		self.state.max_health = int(math.pow(self.state.level, self.state.health_increase_exponent) * self.state.health_multiplier)
+		self.state.max_health = int(math.pow(self.state.level, self.state.cost['health'].growth) * self.state.cost['health'].multiplier)
 		if self.state.health <= 0:
 			self.state.health = self.state.max_health
 
