@@ -16,19 +16,6 @@ MODE_REBIRTH = 1
 MODE_EVOLVE = 2
 MODE_SHOP = 3
 HEALTH_WIDTH = 20
-PERKS = [
-	[ 1,  "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded"              , 250     , 0,    0,   0   ],
-	[ 1,  "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"                  , 1000    , 0,    0,   0   ],
-	[ 1,  "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                                  , 5000    , 0,    0,   0   ],
-	[ 1,  "can_evolve"                  , "Game is Hard IV"    , "Allow Evolving"                                    , 1000000 , 0,    0,   0   ],
-	[ 1,  "show_dps"                    , "Math is Hard I"     , "Show DPS"                                          , 20000   , 0,    1,   0   ],
-	[ 1,  "show_dps_increase"           , "Math is Hard II"    , "Show DPS increase next to upgrades"                , 100000  , 0,    20,  0   ],
-	[ 1,  "show_highest_level"          , "Memory is Hard I"   , "Show Highest Level"                                , 50000   , 1000, 0,   1   ],
-	[ 1,  "show_highest_dps"            , "Memory is Hard II"  , "Show Highest DPS"                                  , 100000  , 2000, 5,   1   ],
-	[ 1,  "show_elapsed"                , "Memory is Hard III" , "Show Elapsed Time"                                 , 150000  , 3000, 10,  5   ],
-	[ 1,  "show_health_percent"         , "Reading is Hard I"  , "Show Health Percent"                               , 500000  , 0,    1,   0   ],
-	[ 10, "reduce_upgrade_price"        , "Buying is Hard"     , "Reduce Upgrade Cost by 5% per rank"                , 1000000 , 0,    0,   10  ],
-]
 
 def get_max_sizes(data, padding):
 	sizes = [padding] * (len(data[0])-1)
@@ -530,23 +517,23 @@ class Game:
 			for perk in PERKS:
 
 				rank = 0
-				if perk[1] in self.state.perks:
-					rank = self.state.perks[perk[1]]
+				if perk.name in self.state.perks:
+					rank = self.state.perks[perk.name]
 
 				cost = self.get_perk_cost(rank, index)
 
 				color = 3
 				if self.cursor == index:
-					if perk[1] in self.state.perks:
+					if perk.name in self.state.perks:
 						color = 5
 					else:
 						color = 2
-				elif rank == perk[0]:
+				elif rank == perk.ranks:
 					color = 4
 				elif self.can_buy_perk(rank, index):
 					color = 1
 
-				data.append([curses.color_pair(color), str(rank) + "/" + str(perk[0]), perk[2], perk[3], str(cost) + 'g', str(perk[5]), str(perk[6]), str(perk[7])])
+				data.append([curses.color_pair(color), str(rank) + "/" + str(perk.ranks), perk.label, perk.info, str(cost) + 'g', str(perk.level), str(perk.rebirths), str(perk.evolves)])
 				index += 1
 
 			# draw upgrade table
@@ -560,20 +547,20 @@ class Game:
 
 	def get_perk_cost(self, rank, index):
 		perk = PERKS[index]
-		if rank >= perk[0]:
-			rank = perk[0]-1
+		if rank >= perk.ranks:
+			rank = perk.ranks-1
 
-		return int(perk[4] * math.pow(self.state.cost['shop'].growth, rank))
+		return int(perk.cost * math.pow(self.state.cost['shop'].growth, rank))
 
 	def can_buy_perk(self, rank, index):
 		perk = PERKS[index]
-		if self.state.rebirth.value < perk[6]:
+		if self.state.rebirth.value < perk.rebirths:
 			return False
 
-		if self.state.evolve.value < perk[7]:
+		if self.state.evolve.value < perk.evolves:
 			return False
 
-		if self.state.level < perk[5]:
+		if self.state.level < perk.level:
 			return False
 
 		return self.state.gold >= self.get_perk_cost(rank, index)
@@ -585,17 +572,17 @@ class Game:
 		has_upgrade = False
 		rank = 0
 		next_rank = 1
-		if perk[1] in self.state.perks:
+		if perk.name in self.state.perks:
 			has_upgrade = True
-			rank = self.state.perks[perk[1]]
+			rank = self.state.perks[perk.name]
 			next_rank = rank + 1
 
 		# check buy conditions
-		if rank < perk[0] and self.can_buy_perk(rank, index):
-			self.state.perks[perk[1]] = next_rank
+		if rank < perk.ranks and self.can_buy_perk(rank, index):
+			self.state.perks[perk.name] = next_rank
 			self.state.gold -= self.get_perk_cost(rank, index)
-			self.message = "Bought " + perk[1]
-			if perk[1] == "reduce_upgrade_price":
+			self.message = "Bought " + perk.name
+			if perk.name == "reduce_upgrade_price":
 				self.state.cost['upgrade'].multiplier = 1.0 - next_rank * 0.05
 
 	def buy_upgrade(self, target, value):
@@ -675,6 +662,20 @@ class Game:
 	def save(self):
 		with open(game.save_path + game.save_file, 'wb') as f:
 			pickle.dump(self.state, f)
+
+PERKS = [
+	Perk( 1,  "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded"              , 250     , 0,    0,   0   ),
+	Perk( 1,  "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"                  , 1000    , 0,    0,   0   ),
+	Perk( 1,  "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                                  , 5000    , 0,    0,   0   ),
+	Perk( 1,  "can_evolve"                  , "Game is Hard IV"    , "Allow Evolving"                                    , 1000000 , 0,    0,   0   ),
+	Perk( 1,  "show_dps"                    , "Math is Hard I"     , "Show DPS"                                          , 20000   , 0,    1,   0   ),
+	Perk( 1,  "show_dps_increase"           , "Math is Hard II"    , "Show DPS increase next to upgrades"                , 100000  , 0,    20,  0   ),
+	Perk( 1,  "show_highest_level"          , "Memory is Hard I"   , "Show Highest Level"                                , 50000   , 1000, 0,   1   ),
+	Perk( 1,  "show_highest_dps"            , "Memory is Hard II"  , "Show Highest DPS"                                  , 100000  , 2000, 5,   1   ),
+	Perk( 1,  "show_elapsed"                , "Memory is Hard III" , "Show Elapsed Time"                                 , 150000  , 3000, 10,  5   ),
+	Perk( 1,  "show_health_percent"         , "Reading is Hard I"  , "Show Health Percent"                               , 500000  , 0,    1,   0   ),
+	Perk( 10, "reduce_upgrade_price"        , "Buying is Hard"     , "Reduce Upgrade Cost by 5% per rank"                , 1000000 , 0,    0,   10  ),
+]
 
 try:
 	game = Game()
