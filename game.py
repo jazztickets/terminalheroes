@@ -237,7 +237,7 @@ class Game:
 					self.message = "[e] Cancel"
 			elif c == ord('s'):
 				self.mode = MODE_SHOP
-				self.message = "[j] Down [k] Up [enter] Buy [s] Cancel"
+				self.message = "[j] Down [k] Up [b] Buy [s] Cancel"
 			elif c == ord('u') or c == ord('1'):
 				self.buy_upgrade(self.state.damage, self.state.damage_increase.value)
 			elif c == ord('i') or c == ord('2'):
@@ -310,7 +310,7 @@ class Game:
 				self.mode = MODE_PLAY
 				self.message = ""
 				self.cursor = 0
-			elif c == 10:
+			elif c == 10 or c == ord('b'):
 				self.buy_perk(self.cursor)
 			elif key_up or c == ord('j'):
 				self.cursor += 1
