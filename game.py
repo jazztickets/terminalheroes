@@ -8,13 +8,15 @@ import sys
 import pickle
 
 DEVMODE = 0
-GAME_VERSION = 10
+GAME_VERSION = 11
 TIME_SCALE = 1
 AUTOSAVE_TIME = 60
+SEQUENCE_INCREMENT = 5
 MODE_PLAY = 0
 MODE_REBIRTH = 1
 MODE_EVOLVE = 2
 MODE_SHOP = 3
+MODE_SEQUENCE = 4
 HEALTH_WIDTH = 20
 
 def get_max_sizes(data, padding):
@@ -86,27 +88,34 @@ class State:
 
 		# stats for records
 		self.highest = {
-			'dps'       : 0,
-			'level'     : 0,
-			'rebirths'  : 0,
-			'evolves'   : 0,
+			'dps'      : 0,
+			'level'    : 0,
+			'rebirth'  : 0,
+			'evolve'   : 0,
 		}
 
 		# stats for running counts
 		self.total = {
-			'time'      : 0,
-			'kills'     : 0,
-			'gold'      : 0,
-			'upgrades'  : 0,
-			'rebirths'  : 0,
-			'evolves'   : 0,
+			'time'     : 0,
+			'kill'     : 0,
+			'gold'     : 0,
+			'upgrade'  : 0,
+			'rebirth'  : 0,
+			'evolve'   : 0,
 		}
 
 		# stats since last rebirth/evolve/reset
 		self.since = {
-			'time'      : 0,
-			'gold'      : 0,
-			'upgrades'  : 0,
+			'time'     : 0,
+			'gold'     : 0,
+			'upgrade'  : 0,
+		}
+
+		# current sequences
+		self.sequence = {
+			'upgrade'  : 0,
+			'rebirth'  : 0,
+			'evolve'   : 0,
 		}
 
 		self.level = self.base['level']
@@ -189,6 +198,7 @@ class Game:
 		curses.curs_set(0)
 		curses.noecho()
 
+	# handle key presses
 	def handle_input(self):
 
 		# get key
@@ -262,23 +272,27 @@ class Game:
 			elif c == ord('2'):
 				self.state.attack_rate_increase.value += self.rebirth_values[1]
 				confirm = True
+			elif c == ord('3'):
+				self.mode = MODE_SEQUENCE
+				self.message = "[u][i][o] Append Sequence [x] Erase [Enter] Confirm [Esc] Cancel"
+				self.old_sequence = self.get_build('upgrade')
 
 			if confirm:
 				self.state.rebirth.buy(1)
-				if self.state.rebirth.value > self.state.highest['rebirths']:
-					self.state.highest['rebirths'] = self.state.rebirth.value
+				if self.state.rebirth.value > self.state.highest['rebirth']:
+					self.state.highest['rebirth'] = self.state.rebirth.value
 				old_state = self.state
 				self.state = State(self.version)
 				self.state.copy(old_state)
 				self.state.rebirth = old_state.rebirth
 				self.state.evolve = old_state.evolve
+				self.state.sequence['rebirth'] = old_state.sequence['rebirth'] + 1
 				self.state.damage_increase_amount.value = old_state.damage_increase_amount.value
 				self.state.attack_rate_increase.value = old_state.attack_rate_increase.value
 				self.state.calc()
 				self.init_level()
 				self.save()
 				self.mode = MODE_PLAY
-
 		elif self.mode == MODE_EVOLVE:
 			confirm = False
 			if c == ord('e') or escape:
@@ -293,17 +307,17 @@ class Game:
 
 			if confirm:
 				self.state.evolve.buy(1)
-				if self.state.evolve.value > self.state.highest['evolves']:
-					self.state.highest['evolves'] = self.state.evolve.value
+				if self.state.evolve.value > self.state.highest['evolve']:
+					self.state.highest['evolve'] = self.state.evolve.value
 				old_state = self.state
 				self.state = State(self.version)
 				self.state.copy(old_state)
 				self.state.evolve = old_state.evolve
+				self.state.sequence['evolve'] = old_state.sequence['evolve'] + 1
 				self.state.calc()
 				self.init_level()
 				self.save()
 				self.mode = MODE_PLAY
-
 		elif self.mode == MODE_SHOP:
 
 			if c == ord('s') or escape:
@@ -320,9 +334,34 @@ class Game:
 				self.cursor -= 1
 				if self.cursor < 0:
 					self.cursor = 0
+		elif self.mode == MODE_SEQUENCE:
+			build = self.get_build('upgrade')
+			if escape:
+				self.mode = MODE_REBIRTH
+				self.message = ""
+				self.cursor = 0
+				self.state.builds['upgrade'] = self.old_sequence
+				return
+			elif c == 10:
+				self.mode = MODE_REBIRTH
+				self.message = ""
+				self.cursor = 0
+			elif c == ord('u'):
+				build += 'u'
+			elif c == ord('i'):
+				build += 'i'
+			elif c == ord('o'):
+				build += 'o'
+			elif c == ord('x') or c == 127:
+				if len(build) > 0:
+					build = build[:-1]
 
-		#if c != -1:
-		#	self.message = "Command: " + str(curses.keyname(c)) + " " + str(c) + " " + str(nc)
+			rank = self.state.perks['auto_upgrade']
+			max_sequences = rank * SEQUENCE_INCREMENT
+			self.state.builds['upgrade'] = build[:max_sequences]
+
+		if 0 and c != -1:
+			self.message = "Command: " + str(curses.keyname(c)) + " " + str(c)
 
 	def start(self):
 		self.state = State(self.version)
@@ -388,6 +427,9 @@ class Game:
 			damage_increase_amount_cost = int(state.damage_increase_amount.cost * state.cost['upgrade'].multiplier)
 			attack_rate_cost = int(state.attack_rate.cost * state.cost['upgrade'].multiplier)
 			attack_rate_increase_cost = int(state.attack_rate_increase.cost * state.cost['upgrade'].multiplier)
+			if 'auto_upgrade' in state.perks:
+				auto_upgrade_max = self.state.perks['auto_upgrade'] * SEQUENCE_INCREMENT
+				auto_upgrade_current = self.state.sequence['upgrade']
 
 			# determine dps increase data
 			dps_increase_header = ""
@@ -424,6 +466,8 @@ class Game:
 			if 'show_dps' in state.perks:
 				data.append([curses.A_NORMAL, 'DPS', str(dps)])
 			data.append([curses.A_NORMAL, 'Gold', str(gold)])
+			if 'auto_upgrade' in state.perks:
+				data.append([curses.A_NORMAL, 'Next Upgrade', str(self.get_next_sequence('upgrade')) + ' (' + str(auto_upgrade_current) + ' of ' + str(auto_upgrade_max) + ')'])
 			if state.gold_multiplier != 1:
 				data.append([curses.A_NORMAL, 'Gold Multiplier', str(gold_multiplier)])
 			if 'show_highest_level' in state.perks:
@@ -432,15 +476,16 @@ class Game:
 				data.append([curses.A_NORMAL, 'Highest DPS', str(state.highest['dps'])])
 			if 'show_elapsed' in state.perks:
 				data.append([curses.A_NORMAL, 'Elapsed Time', self.get_time(state.total['time'])])
+
 			#data.append([curses.A_NORMAL, 'Time Since', self.get_time(state.since['time'])])
-			#data.append([curses.A_NORMAL, 'Upgrades Since', str(state.since['upgrades'])])
+			#data.append([curses.A_NORMAL, 'Upgrades Since', str(state.since['upgrade'])])
 			#data.append([curses.A_NORMAL, 'Gold Since', str(state.since['gold'])])
 			#data.append([curses.A_NORMAL, 'Total Gold', str(state.total['gold'])])
-			#data.append([curses.A_NORMAL, 'Total Upgrades', str(state.total['upgrades'])])
-			#data.append([curses.A_NORMAL, 'Total Kills', str(state.total['kills'])])
+			#data.append([curses.A_NORMAL, 'Total Upgrades', str(state.total['upgrade'])])
+			#data.append([curses.A_NORMAL, 'Total Kills', str(state.total['kill'])])
 
-			#data.append([curses.A_NORMAL, 'Highest Rebirths', str(state.highest['rebirths'])])
-			#data.append([curses.A_NORMAL, 'Highest Evolves', str(state.highest['evolves'])])
+			#data.append([curses.A_NORMAL, 'Highest Rebirths', str(state.highest['rebirth'])])
+			#data.append([curses.A_NORMAL, 'Highest Evolves', str(state.highest['evolve'])])
 
 			sizes = get_max_sizes(data, 2)
 			y = self.draw_table(y, "{0:%s} {1:%s}" % (*sizes,), data)
@@ -474,6 +519,10 @@ class Game:
 
 				y += 1
 				game.win_game.addstr(y, 0, "[2] Upgrade Attack Rate Increase by " + str(self.rebirth_values[1]))
+
+				if 'auto_upgrade' in state.perks:
+					y += 1
+					game.win_game.addstr(y, 0, "[3] Set Upgrade Sequence")
 
 				y += 2
 				game.win_game.addstr(y, 0, "[r] Cancel")
@@ -540,10 +589,41 @@ class Game:
 			sizes = get_max_sizes(data, 2)
 			y = self.draw_table(y, "{0:%s} {1:%s} {2:%s} {3:%s} {4:%s} {5:%s} {6:%s}" % (*sizes,), data)
 			y += 1
+		elif self.mode == MODE_SEQUENCE:
+			build = self.get_build('upgrade')
+			rank = self.state.perks['auto_upgrade']
+			max_sequences = rank * SEQUENCE_INCREMENT
+
+			try:
+				y = 0
+				game.win_game.addstr(y, 0, "Upgrade Sequence", curses.A_BOLD)
+
+				y += 2
+				game.win_game.addstr(y, 0, build, curses.A_NORMAL)
+
+				y += 2
+				game.win_game.addstr(y, 0, "Used " + str(len(build)) + " of " + str(max_sequences), curses.A_BOLD)
+
+			except:
+				pass
 
 		self.win_game.noutrefresh()
 		self.win_message.noutrefresh()
 		curses.doupdate()
+
+	def get_next_sequence(self, name):
+		build = self.get_build(name)
+		sequence = self.state.sequence[name]
+		if sequence < len(build):
+			return build[sequence]
+
+		return ""
+
+	def get_build(self, build):
+		if build not in self.state.builds:
+			self.state.builds[build] = ""
+
+		return self.state.builds[build]
 
 	def get_perk_cost(self, rank, index):
 		perk = PERKS[index]
@@ -589,9 +669,12 @@ class Game:
 		cost = int(target.cost * self.state.cost['upgrade'].multiplier)
 		if self.state.gold >= cost:
 			self.state.gold -= cost
-			self.state.total['upgrades'] += 1
-			self.state.since['upgrades'] += 1
+			self.state.total['upgrade'] += 1
+			self.state.since['upgrade'] += 1
 			target.buy(value)
+			return True
+
+		return False
 
 	def get_time(self, time):
 		if time < 60:
@@ -627,7 +710,22 @@ class Game:
 		self.state.gold += total_reward
 		self.state.total['gold'] += total_reward
 		self.state.since['gold'] += total_reward
-		self.state.total['kills'] += 1
+		self.state.total['kill'] += 1
+
+		# handle auto upgrades
+		command = self.get_next_sequence('upgrade')
+		bought = False
+		if command == 'u':
+			bought = self.buy_upgrade(self.state.damage, self.state.damage_increase.value)
+		elif command == 'i':
+			if 'can_upgrade_damage_increase' in self.state.perks:
+				bought = self.buy_upgrade(self.state.damage_increase, self.state.damage_increase_amount.value)
+		elif command == 'o':
+			if 'can_upgrade_attack_rate' in self.state.perks:
+				bought = self.buy_upgrade(self.state.attack_rate, self.state.attack_rate_increase.value)
+
+		if bought:
+			self.state.sequence['upgrade'] += 1
 
 	def update(self, frametime):
 		self.state.total['time'] += frametime
@@ -664,17 +762,18 @@ class Game:
 			pickle.dump(self.state, f)
 
 PERKS = [
-	Perk( 1,  "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded"              , 250     , 0,    0,   0   ),
-	Perk( 1,  "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"                  , 1000    , 0,    0,   0   ),
-	Perk( 1,  "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                                  , 5000    , 0,    0,   0   ),
-	Perk( 1,  "can_evolve"                  , "Game is Hard IV"    , "Allow Evolving"                                    , 1000000 , 0,    0,   0   ),
-	Perk( 1,  "show_dps"                    , "Math is Hard I"     , "Show DPS"                                          , 20000   , 0,    1,   0   ),
-	Perk( 1,  "show_dps_increase"           , "Math is Hard II"    , "Show DPS increase next to upgrades"                , 100000  , 0,    20,  0   ),
-	Perk( 1,  "show_highest_level"          , "Memory is Hard I"   , "Show Highest Level"                                , 50000   , 1000, 0,   1   ),
-	Perk( 1,  "show_highest_dps"            , "Memory is Hard II"  , "Show Highest DPS"                                  , 100000  , 2000, 5,   1   ),
-	Perk( 1,  "show_elapsed"                , "Memory is Hard III" , "Show Elapsed Time"                                 , 150000  , 3000, 10,  5   ),
-	Perk( 1,  "show_health_percent"         , "Reading is Hard I"  , "Show Health Percent"                               , 500000  , 0,    1,   0   ),
-	Perk( 10, "reduce_upgrade_price"        , "Buying is Hard"     , "Reduce Upgrade Cost by 5% per rank"                , 1000000 , 0,    0,   10  ),
+	Perk( 1,   "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded"                         , 250       , 0,    0,   0   ),
+	Perk( 1,   "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"                             , 1000      , 0,    0,   0   ),
+	Perk( 1,   "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                                             , 5000      , 0,    0,   0   ),
+	Perk( 1,   "can_evolve"                  , "Game is Hard IV"    , "Allow Evolving"                                               , 1000000   , 0,    0,   0   ),
+	Perk( 1,   "show_dps"                    , "Math is Hard I"     , "Show DPS"                                                     , 20000     , 0,    1,   0   ),
+	Perk( 1,   "show_dps_increase"           , "Math is Hard II"    , "Show DPS increase next to upgrades"                           , 100000    , 0,    20,  0   ),
+	Perk( 1,   "show_highest_level"          , "Memory is Hard I"   , "Show Highest Level"                                           , 50000     , 1000, 0,   1   ),
+	Perk( 1,   "show_highest_dps"            , "Memory is Hard II"  , "Show Highest DPS"                                             , 100000    , 2000, 5,   1   ),
+	Perk( 1,   "show_elapsed"                , "Memory is Hard III" , "Show Elapsed Time"                                            , 150000    , 3000, 10,  5   ),
+	Perk( 1,   "show_health_percent"         , "Reading is Hard I"  , "Show Health Percent"                                          , 500000    , 0,    1,   0   ),
+	Perk( 10,  "reduce_upgrade_price"        , "Buying is Hard"     , "Reduce Upgrade Cost by 5% per Rank"                           , 1000000   , 0,    0,   10  ),
+	Perk( 100, "auto_upgrade"                , "Upgrading is Hard"  , "Set an Upgrade Sequence on Rebirth"                           , 100000    , 0,    0,   5   ),
 ]
 
 try:
