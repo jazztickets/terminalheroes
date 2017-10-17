@@ -468,7 +468,7 @@ class Game:
 			data.append([curses.A_NORMAL, 'Gold', str(gold)])
 			if 'auto_upgrade' in state.perks:
 				next_sequence = self.get_next_sequence('upgrade')
-				if next_sequence != "" or auto_upgrade_current > 0:
+				if next_sequence != "":
 					data.append([curses.A_NORMAL, 'Next Upgrade', next_sequence + ' (' + str(auto_upgrade_current) + ' of ' + str(auto_upgrade_max) + ')'])
 			if state.gold_multiplier != 1:
 				data.append([curses.A_NORMAL, 'Gold Multiplier', str(gold_multiplier)])
