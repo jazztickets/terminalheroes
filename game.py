@@ -145,6 +145,7 @@ class State:
 	# copy values after reset
 	def copy(self, existing):
 		self.base = existing.base
+		self.cost = existing.cost
 		self.perks = existing.perks
 		self.highest = existing.highest
 		self.total = existing.total
