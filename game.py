@@ -243,18 +243,12 @@ class Game:
 				self.message = "New game!"
 			elif c == ord('r'):
 				if 'can_rebirth' in self.state.perks:
-					if self.state.gold >= self.state.rebirth.cost:
-						self.mode = MODE_REBIRTH
-						self.message = "[r] Cancel"
-					else:
-						self.penalize()
+					self.mode = MODE_REBIRTH
+					self.message = "[r] Cancel"
 			elif c == ord('e'):
 				if 'can_evolve' in self.state.perks:
-					if self.state.rebirth.value >= self.state.evolve.cost:
-						self.mode = MODE_EVOLVE
-						self.message = "[e] Cancel"
-					else:
-						self.penalize()
+					self.mode = MODE_EVOLVE
+					self.message = "[e] Cancel"
 			elif c == ord('s'):
 				self.mode = MODE_SHOP
 				self.message = "[j] Down [k] Up [b] Buy [s] Cancel"
@@ -280,60 +274,22 @@ class Game:
 				self.mode = MODE_PLAY
 				self.message = ""
 			elif c == ord('1'):
-				self.state.damage_increase_amount.value += self.rebirth_values[0]
-				confirm = True
+				self.buy_rebirth('1')
 			elif c == ord('2'):
-				self.state.attack_rate_increase.value += self.rebirth_values[1]
-				confirm = True
+				self.buy_rebirth('2')
 			elif c == ord('3'):
-				self.mode = MODE_SEQUENCE
-				self.message = "[u][i][o] Append Sequence [x] Erase [Enter] Confirm [Esc] Cancel"
-				self.mode_build = 'upgrade'
-				self.old_sequence = self.get_build(self.mode_build)
-
-			if confirm:
-				self.state.rebirth.buy(1)
-				if self.state.rebirth.value > self.state.highest['rebirth']:
-					self.state.highest['rebirth'] = self.state.rebirth.value
-				old_state = self.state
-				self.state = State(self.version)
-				self.state.copy(old_state)
-				self.state.rebirth = old_state.rebirth
-				self.state.evolve = old_state.evolve
-				self.state.sequence['rebirth'] = old_state.sequence['rebirth'] + 1
-				self.state.damage_increase_amount.value = old_state.damage_increase_amount.value
-				self.state.attack_rate_increase.value = old_state.attack_rate_increase.value
-				self.state.calc()
-				self.init_level()
-				self.penalties = 0
-				self.save()
-				self.mode = MODE_PLAY
+				self.set_sequence_mode('upgrade')
 		elif self.mode == MODE_EVOLVE:
 			confirm = False
 			if c == ord('e') or escape:
 				self.mode = MODE_PLAY
 				self.message = ""
 			elif c == ord('1'):
-				self.state.base['damage'] += self.evolve_values[0]
-				confirm = True
+				self.buy_evolve('1')
 			elif c == ord('2'):
-				self.state.base['attack_rate'] += self.evolve_values[1]
-				confirm = True
-
-			if confirm:
-				self.state.evolve.buy(1)
-				if self.state.evolve.value > self.state.highest['evolve']:
-					self.state.highest['evolve'] = self.state.evolve.value
-				old_state = self.state
-				self.state = State(self.version)
-				self.state.copy(old_state)
-				self.state.evolve = old_state.evolve
-				self.state.sequence['evolve'] = old_state.sequence['evolve'] + 1
-				self.state.calc()
-				self.penalties = 0
-				self.init_level()
-				self.save()
-				self.mode = MODE_PLAY
+				self.buy_evolve('2')
+			elif c == ord('3'):
+				self.set_sequence_mode('rebirth')
 		elif self.mode == MODE_SHOP:
 			if c == ord('s') or escape:
 				self.mode = MODE_PLAY
@@ -352,26 +308,33 @@ class Game:
 		elif self.mode == MODE_SEQUENCE:
 			build = self.get_build(self.mode_build)
 			if escape:
-				self.mode = MODE_REBIRTH
+				self.mode = self.mode_previous
 				self.message = ""
 				self.cursor = 0
 				self.state.builds[self.mode_build] = self.old_sequence
 				return
 			elif c == 10:
-				self.mode = MODE_REBIRTH
+				self.mode = self.mode_previous
 				self.message = ""
 				self.cursor = 0
-			elif c == ord('u'):
-				build += 'u'
-			elif c == ord('i'):
-				build += 'i'
-			elif c == ord('o'):
-				build += 'o'
 			elif c == ord('x') or c == 127:
 				if len(build) > 0:
 					build = build[:-1]
 
-			rank = self.state.perks['auto_upgrade']
+			if self.mode_build == 'upgrade':
+				if c == ord('u'):
+					build += 'u'
+				elif c == ord('i'):
+					build += 'i'
+				elif c == ord('o'):
+					build += 'o'
+			elif self.mode_build == 'rebirth':
+				if c == ord('1'):
+					build += '1'
+				elif c == ord('2'):
+					build += '2'
+
+			rank = self.state.perks['auto_' + self.mode_build]
 			max_sequences = rank * SEQUENCE_INCREMENT
 			self.state.builds[self.mode_build] = build[:max_sequences]
 
@@ -393,6 +356,20 @@ class Game:
 
 		self.penalties = 0
 		self.init_level()
+
+	def set_sequence_mode(self, build):
+		if 'auto_' + build not in self.state.perks:
+			return
+
+		self.mode_previous = self.mode
+		self.mode = MODE_SEQUENCE
+		if build == 'upgrade':
+			self.message = "[u][i][o]"
+		elif build == 'rebirth':
+			self.message = "[1][2]"
+		self.message += " Append Sequence [x] Erase [Enter] Confirm [Esc] Cancel"
+		self.mode_build = build
+		self.old_sequence = self.get_build(self.mode_build)
 
 	def penalize(self):
 		self.penalties += 1
@@ -458,6 +435,9 @@ class Game:
 			if 'auto_upgrade' in state.perks:
 				auto_upgrade_max = self.state.perks['auto_upgrade'] * SEQUENCE_INCREMENT
 				auto_upgrade_current = self.state.sequence['upgrade']
+			if 'auto_rebirth' in state.perks:
+				auto_rebirth_max = self.state.perks['auto_rebirth'] * SEQUENCE_INCREMENT
+				auto_rebirth_current = self.state.sequence['rebirth']
 
 			# determine dps increase data
 			dps_increase_header = ""
@@ -499,7 +479,11 @@ class Game:
 			if 'auto_upgrade' in state.perks:
 				next_sequence = self.get_next_sequence('upgrade')
 				if next_sequence != "":
-					data.append([curses.A_NORMAL, 'Next Upgrade', next_sequence + ' (' + str(auto_upgrade_current) + ' of ' + str(auto_upgrade_max) + ')'])
+					data.append([curses.A_NORMAL, 'Next Upgrade', "'" + next_sequence + "' (" + str(auto_upgrade_current) + " of " + str(auto_upgrade_max) + ")"])
+			if 'auto_rebirth' in state.perks:
+				next_sequence = self.get_next_sequence('rebirth')
+				if next_sequence != "":
+					data.append([curses.A_NORMAL, 'Next Rebirth', "'" + next_sequence + "' (" + str(auto_rebirth_current) + " of " + str(auto_rebirth_max) + ")"])
 			if state.gold_multiplier != 1:
 				data.append([curses.A_NORMAL, 'Gold Multiplier', str(gold_multiplier)])
 			if 'show_highest_level' in state.perks:
@@ -546,11 +530,12 @@ class Game:
 				y = 0
 				game.win_game.addstr(y, 0, "Rebirth Options", curses.A_BOLD)
 
-				y += 2
-				game.win_game.addstr(y, 0, "[1] Upgrade Damage Increase Amount by " + str(self.rebirth_values[0]))
+				if self.state.gold >= self.state.rebirth.cost:
+					y += 2
+					game.win_game.addstr(y, 0, "[1] Upgrade Damage Increase Amount by " + str(self.rebirth_values[0]))
 
-				y += 1
-				game.win_game.addstr(y, 0, "[2] Upgrade Attack Rate Increase by " + str(self.rebirth_values[1]))
+					y += 1
+					game.win_game.addstr(y, 0, "[2] Upgrade Attack Rate Increase by " + str(self.rebirth_values[1]))
 
 				if 'auto_upgrade' in state.perks:
 					y += 1
@@ -567,11 +552,16 @@ class Game:
 				y = 0
 				game.win_game.addstr(y, 0, "Evolve Options", curses.A_BOLD)
 
-				y += 2
-				game.win_game.addstr(y, 0, "[1] Upgrade Base Damage by " + str(self.evolve_values[0]))
+				if self.state.rebirth.value >= self.state.evolve.cost:
+					y += 2
+					game.win_game.addstr(y, 0, "[1] Upgrade Base Damage by " + str(self.evolve_values[0]))
 
-				y += 1
-				game.win_game.addstr(y, 0, "[2] Upgrade Base Attack Rate by " + str(self.evolve_values[1]))
+					y += 1
+					game.win_game.addstr(y, 0, "[2] Upgrade Base Attack Rate by " + str(self.evolve_values[1]))
+
+				if 'auto_rebirth' in state.perks:
+					y += 1
+					game.win_game.addstr(y, 0, "[3] Set Rebirth Sequence")
 
 				y += 2
 				game.win_game.addstr(y, 0, "[e] Cancel")
@@ -622,13 +612,13 @@ class Game:
 			y = self.draw_table(y, "{0:%s} {1:%s} {2:%s} {3:%s} {4:%s} {5:%s} {6:%s}" % (*sizes,), data)
 			y += 1
 		elif self.mode == MODE_SEQUENCE:
-			build = self.get_build('upgrade')
-			rank = self.state.perks['auto_upgrade']
+			build = self.get_build(self.mode_build)
+			rank = self.state.perks['auto_' + self.mode_build]
 			max_sequences = rank * SEQUENCE_INCREMENT
 
 			try:
 				y = 0
-				game.win_game.addstr(y, 0, "Upgrade Sequence", curses.A_BOLD)
+				game.win_game.addstr(y, 0, self.mode_build.title() + " Sequence", curses.A_BOLD)
 
 				y += 2
 				game.win_game.addstr(y, 0, build, curses.A_NORMAL)
@@ -709,6 +699,59 @@ class Game:
 
 		return False
 
+	def buy_rebirth(self, option):
+		if option == '' or self.state.gold < self.state.rebirth.cost:
+			return False
+
+		if option == '1':
+			self.state.damage_increase_amount.value += self.rebirth_values[0]
+		elif option == '2':
+			self.state.attack_rate_increase.value += self.rebirth_values[1]
+
+		self.state.rebirth.buy(1)
+		if self.state.rebirth.value > self.state.highest['rebirth']:
+			self.state.highest['rebirth'] = self.state.rebirth.value
+		old_state = self.state
+		self.state = State(self.version)
+		self.state.copy(old_state)
+		self.state.rebirth = old_state.rebirth
+		self.state.evolve = old_state.evolve
+		self.state.sequence['rebirth'] = old_state.sequence['rebirth'] + 1
+		self.state.damage_increase_amount.value = old_state.damage_increase_amount.value
+		self.state.attack_rate_increase.value = old_state.attack_rate_increase.value
+		self.state.calc()
+		self.init_level()
+		self.penalties = 0
+		self.save()
+		self.mode = MODE_PLAY
+
+		return True
+
+	def buy_evolve(self, option):
+		if option == '' or self.state.rebirth.value < self.state.evolve.cost:
+			return False
+
+		if option == '1':
+			self.state.base['damage'] += self.evolve_values[0]
+		elif option == '2':
+			self.state.base['attack_rate'] += self.evolve_values[1]
+
+		self.state.evolve.buy(1)
+		if self.state.evolve.value > self.state.highest['evolve']:
+			self.state.highest['evolve'] = self.state.evolve.value
+		old_state = self.state
+		self.state = State(self.version)
+		self.state.copy(old_state)
+		self.state.evolve = old_state.evolve
+		self.state.sequence['evolve'] = old_state.sequence['evolve'] + 1
+		self.state.calc()
+		self.penalties = 0
+		self.init_level()
+		self.save()
+		self.mode = MODE_PLAY
+
+		return True
+
 	def get_time(self, time):
 		if time < 60:
 			return str(int(time)) + "s"
@@ -746,19 +789,24 @@ class Game:
 		self.state.total['kill'] += 1
 
 		# handle auto upgrades
-		command = self.get_next_sequence('upgrade')
-		bought = False
-		if command == 'u':
-			bought = self.buy_upgrade(self.state.damage, self.state.damage_increase.value)
-		elif command == 'i':
-			if 'can_upgrade_damage_increase' in self.state.perks:
-				bought = self.buy_upgrade(self.state.damage_increase, self.state.damage_increase_amount.value)
-		elif command == 'o':
-			if 'can_upgrade_attack_rate' in self.state.perks:
-				bought = self.buy_upgrade(self.state.attack_rate, self.state.attack_rate_increase.value)
+		if self.mode == MODE_PLAY:
+			command = self.get_next_sequence('upgrade')
+			bought = False
+			if command == 'u':
+				bought = self.buy_upgrade(self.state.damage, self.state.damage_increase.value)
+			elif command == 'i':
+				if 'can_upgrade_damage_increase' in self.state.perks:
+					bought = self.buy_upgrade(self.state.damage_increase, self.state.damage_increase_amount.value)
+			elif command == 'o':
+				if 'can_upgrade_attack_rate' in self.state.perks:
+					bought = self.buy_upgrade(self.state.attack_rate, self.state.attack_rate_increase.value)
 
-		if bought:
-			self.state.sequence['upgrade'] += 1
+			if bought:
+				self.state.sequence['upgrade'] += 1
+
+			# handle auto rebirths
+			command = self.get_next_sequence('rebirth')
+			bought = self.buy_rebirth(command)
 
 	def update(self, frametime):
 		self.state.total['time'] += frametime
@@ -796,8 +844,8 @@ class Game:
 
 PERKS = [
 	Perk( 1,   "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded"                         , 250       , 0,    0,   0,   0   ),
-	Perk( 1,   "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"                             , 1000      , 0,    0,   0,   0   ),
-	Perk( 1,   "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                                             , 5000      , 0,    0,   0,   0   ),
+	Perk( 1,   "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"                             , 2000      , 0,    0,   0,   0   ),
+	Perk( 1,   "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                                             , 20000     , 0,    0,   0,   0   ),
 	Perk( 1,   "can_evolve"                  , "Game is Hard IV"    , "Allow Evolving"                                               , 1000000   , 0,    0,   0,   0   ),
 	Perk( 1,   "show_dps"                    , "Math is Hard I"     , "Show DPS"                                                     , 20000     , 0,    1,   0,   0   ),
 	Perk( 1,   "show_dps_increase"           , "Math is Hard II"    , "Show DPS increase next to upgrades"                           , 100000    , 0,    20,  0,   0   ),
@@ -807,6 +855,7 @@ PERKS = [
 	Perk( 1,   "show_health_percent"         , "Reading is Hard I"  , "Show Health Percent"                                          , 500000    , 0,    1,   0,   0   ),
 	Perk( 10,  "reduce_upgrade_price"        , "Buying is Hard"     , "Reduce Upgrade Cost by 5% per Rank"                           , 1000000   , 0,    0,   10,  10  ),
 	Perk( 100, "auto_upgrade"                , "Upgrading is Hard"  , "Set an Upgrade Sequence on Rebirth"                           , 1000000   , 0,    0,   5,   2   ),
+	Perk( 100, "auto_rebirth"                , "Rebirthing is Hard" , "Set a Rebirth Sequence on Evolve"                             , 10000000  , 0,    0,   10,  2   ),
 ]
 
 try:
