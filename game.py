@@ -32,7 +32,7 @@ def get_max_sizes(data, padding):
 
 class Perk:
 
-	def __init__(self, ranks, name, label, info, cost, level, rebirths, evolves):
+	def __init__(self, ranks, name, label, info, cost, level, rebirths, evolves, cost_multiplier):
 		self.ranks = ranks
 		self.name = name
 		self.label = label
@@ -41,6 +41,7 @@ class Perk:
 		self.level = level
 		self.rebirths = rebirths
 		self.evolves = evolves
+		self.cost_multiplier = cost_multiplier
 
 class Upgrade:
 
@@ -80,7 +81,6 @@ class State:
 		# values associated with cost and increasing prices
 		self.cost = {
 			'upgrade'   : Cost(1.2, 1),
-			'shop'      : Cost(10.0, 1),
 			'rebirth'   : Cost(1.1, 1),
 			'evolve'    : Cost(1.1, 1),
 			'health'    : Cost(1.5, 1),
@@ -634,7 +634,7 @@ class Game:
 		if rank >= perk.ranks:
 			rank = perk.ranks-1
 
-		return int(perk.cost * math.pow(self.state.cost['shop'].growth, rank))
+		return int(perk.cost * math.pow(perk.cost_multiplier, rank))
 
 	def can_buy_perk(self, rank, index):
 		perk = PERKS[index]
@@ -766,18 +766,18 @@ class Game:
 			pickle.dump(self.state, f)
 
 PERKS = [
-	Perk( 1,   "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded"                         , 250       , 0,    0,   0   ),
-	Perk( 1,   "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"                             , 1000      , 0,    0,   0   ),
-	Perk( 1,   "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                                             , 5000      , 0,    0,   0   ),
-	Perk( 1,   "can_evolve"                  , "Game is Hard IV"    , "Allow Evolving"                                               , 1000000   , 0,    0,   0   ),
-	Perk( 1,   "show_dps"                    , "Math is Hard I"     , "Show DPS"                                                     , 20000     , 0,    1,   0   ),
-	Perk( 1,   "show_dps_increase"           , "Math is Hard II"    , "Show DPS increase next to upgrades"                           , 100000    , 0,    20,  0   ),
-	Perk( 1,   "show_highest_level"          , "Memory is Hard I"   , "Show Highest Level"                                           , 50000     , 1000, 0,   1   ),
-	Perk( 1,   "show_highest_dps"            , "Memory is Hard II"  , "Show Highest DPS"                                             , 100000    , 2000, 5,   1   ),
-	Perk( 1,   "show_elapsed"                , "Memory is Hard III" , "Show Elapsed Time"                                            , 150000    , 3000, 10,  5   ),
-	Perk( 1,   "show_health_percent"         , "Reading is Hard I"  , "Show Health Percent"                                          , 500000    , 0,    1,   0   ),
-	Perk( 10,  "reduce_upgrade_price"        , "Buying is Hard"     , "Reduce Upgrade Cost by 5% per Rank"                           , 1000000   , 0,    0,   10  ),
-	Perk( 100, "auto_upgrade"                , "Upgrading is Hard"  , "Set an Upgrade Sequence on Rebirth"                           , 100000    , 0,    0,   5   ),
+	Perk( 1,   "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded"                         , 250       , 0,    0,   0,   0   ),
+	Perk( 1,   "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"                             , 1000      , 0,    0,   0,   0   ),
+	Perk( 1,   "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                                             , 5000      , 0,    0,   0,   0   ),
+	Perk( 1,   "can_evolve"                  , "Game is Hard IV"    , "Allow Evolving"                                               , 1000000   , 0,    0,   0,   0   ),
+	Perk( 1,   "show_dps"                    , "Math is Hard I"     , "Show DPS"                                                     , 20000     , 0,    1,   0,   0   ),
+	Perk( 1,   "show_dps_increase"           , "Math is Hard II"    , "Show DPS increase next to upgrades"                           , 100000    , 0,    20,  0,   0   ),
+	Perk( 1,   "show_highest_level"          , "Memory is Hard I"   , "Show Highest Level"                                           , 50000     , 1000, 0,   1,   0   ),
+	Perk( 1,   "show_highest_dps"            , "Memory is Hard II"  , "Show Highest DPS"                                             , 100000    , 2000, 5,   1,   0   ),
+	Perk( 1,   "show_elapsed"                , "Memory is Hard III" , "Show Elapsed Time"                                            , 150000    , 3000, 10,  5,   0   ),
+	Perk( 1,   "show_health_percent"         , "Reading is Hard I"  , "Show Health Percent"                                          , 500000    , 0,    1,   0,   0   ),
+	Perk( 10,  "reduce_upgrade_price"        , "Buying is Hard"     , "Reduce Upgrade Cost by 5% per Rank"                           , 1000000   , 0,    0,   10,  10  ),
+	Perk( 100, "auto_upgrade"                , "Upgrading is Hard"  , "Set an Upgrade Sequence on Rebirth"                           , 1000000   , 0,    0,   5,   2   ),
 ]
 
 try:
