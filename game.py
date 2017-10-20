@@ -8,10 +8,11 @@ import sys
 import pickle
 
 DEVMODE = 0
-GAME_VERSION = 11
+GAME_VERSION = 12
 TIME_SCALE = 1
 AUTOSAVE_TIME = 60
 SEQUENCE_INCREMENT = 5
+PENALTIES_ALLOWED = 2
 MODE_PLAY = 0
 MODE_REBIRTH = 1
 MODE_EVOLVE = 2
@@ -88,34 +89,35 @@ class State:
 
 		# stats for records
 		self.highest = {
-			'dps'      : 0,
-			'level'    : 0,
-			'rebirth'  : 0,
-			'evolve'   : 0,
+			'dps'       : 0,
+			'level'     : 0,
+			'rebirth'   : 0,
+			'evolve'    : 0,
 		}
 
 		# stats for running counts
 		self.total = {
-			'time'     : 0,
-			'kill'     : 0,
-			'gold'     : 0,
-			'upgrade'  : 0,
-			'rebirth'  : 0,
-			'evolve'   : 0,
+			'time'      : 0,
+			'kill'      : 0,
+			'gold'      : 0,
+			'gold_lost' : 0,
+			'upgrade'   : 0,
+			'rebirth'   : 0,
+			'evolve'    : 0,
 		}
 
 		# stats since last rebirth/evolve/reset
 		self.since = {
-			'time'     : 0,
-			'gold'     : 0,
-			'upgrade'  : 0,
+			'time'      : 0,
+			'gold'      : 0,
+			'upgrade'   : 0,
 		}
 
 		# current sequences
 		self.sequence = {
-			'upgrade'  : 0,
-			'rebirth'  : 0,
-			'evolve'   : 0,
+			'upgrade'   : 0,
+			'rebirth'   : 0,
+			'evolve'    : 0,
 		}
 
 		self.level = self.base['level']
@@ -240,24 +242,33 @@ class Game:
 				self.init_level()
 				self.message = "New game!"
 			elif c == ord('r'):
-				if 'can_rebirth' in self.state.perks and self.state.gold >= self.state.rebirth.cost:
-					self.mode = MODE_REBIRTH
-					self.message = "[r] Cancel"
+				if 'can_rebirth' in self.state.perks:
+					if self.state.gold >= self.state.rebirth.cost:
+						self.mode = MODE_REBIRTH
+						self.message = "[r] Cancel"
+					else:
+						self.penalize()
 			elif c == ord('e'):
-				if 'can_evolve' in self.state.perks and self.state.rebirth.value >= self.state.evolve.cost:
-					self.mode = MODE_EVOLVE
-					self.message = "[e] Cancel"
+				if 'can_evolve' in self.state.perks:
+					if self.state.rebirth.value >= self.state.evolve.cost:
+						self.mode = MODE_EVOLVE
+						self.message = "[e] Cancel"
+					else:
+						self.penalize()
 			elif c == ord('s'):
 				self.mode = MODE_SHOP
 				self.message = "[j] Down [k] Up [b] Buy [s] Cancel"
 			elif c == ord('u') or c == ord('1'):
-				self.buy_upgrade(self.state.damage, self.state.damage_increase.value)
+				if self.buy_upgrade(self.state.damage, self.state.damage_increase.value) == False:
+					self.penalize()
 			elif c == ord('i') or c == ord('2'):
 				if 'can_upgrade_damage_increase' in self.state.perks:
-					self.buy_upgrade(self.state.damage_increase, self.state.damage_increase_amount.value)
+					if self.buy_upgrade(self.state.damage_increase, self.state.damage_increase_amount.value) == False:
+						self.penalize()
 			elif c == ord('o') or c == ord('3'):
 				if 'can_upgrade_attack_rate' in self.state.perks:
-					self.buy_upgrade(self.state.attack_rate, self.state.attack_rate_increase.value)
+					if self.buy_upgrade(self.state.attack_rate, self.state.attack_rate_increase.value) == False:
+						self.penalize()
 			elif c == ord('Q'):
 				self.done = 1
 			elif c == ord('q') or escape:
@@ -294,6 +305,7 @@ class Game:
 				self.state.attack_rate_increase.value = old_state.attack_rate_increase.value
 				self.state.calc()
 				self.init_level()
+				self.penalties = 0
 				self.save()
 				self.mode = MODE_PLAY
 		elif self.mode == MODE_EVOLVE:
@@ -318,6 +330,7 @@ class Game:
 				self.state.evolve = old_state.evolve
 				self.state.sequence['evolve'] = old_state.sequence['evolve'] + 1
 				self.state.calc()
+				self.penalties = 0
 				self.init_level()
 				self.save()
 				self.mode = MODE_PLAY
@@ -378,7 +391,19 @@ class Game:
 
 		curses.doupdate()
 
+		self.penalties = 0
 		self.init_level()
+
+	def penalize(self):
+		self.penalties += 1
+		if self.penalties > PENALTIES_ALLOWED:
+			gold_lost = math.ceil(self.state.gold * 0.1)
+			if gold_lost > 0:
+				self.state.total['gold_lost'] += gold_lost
+				self.state.gold -= gold_lost
+				self.message = "PENALIZED! YOU LOST " + str(gold_lost) + " GOLD!"
+		else:
+			self.message = "PENALTIES LEFT: " + str(PENALTIES_ALLOWED - self.penalties)
 
 	def draw_message(self):
 		self.win_message.erase()
@@ -416,6 +441,7 @@ class Game:
 				state.highest['dps'] = dps
 
 			gold = state.gold
+			gold_lost = state.total['gold_lost']
 			gold_multiplier = round(state.gold_multiplier, 2)
 			rebirths = state.rebirth.value
 			evolves = state.evolve.value
@@ -468,6 +494,8 @@ class Game:
 			if 'show_dps' in state.perks:
 				data.append([curses.A_NORMAL, 'DPS', str(dps)])
 			data.append([curses.A_NORMAL, 'Gold', str(gold)])
+			if gold_lost > 0:
+				data.append([curses.A_NORMAL, 'Gold Lost', str(gold_lost)])
 			if 'auto_upgrade' in state.perks:
 				next_sequence = self.get_next_sequence('upgrade')
 				if next_sequence != "":
@@ -676,6 +704,7 @@ class Game:
 			self.state.total['upgrade'] += 1
 			self.state.since['upgrade'] += 1
 			target.buy(value)
+			self.penalties = 0
 			return True
 
 		return False
