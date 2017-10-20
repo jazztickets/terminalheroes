@@ -235,6 +235,7 @@ class Game:
 		if self.mode == MODE_PLAY:
 			# ^X
 			if c == 24:
+				self.save('.' + str(round(time.time()*1000)))
 				self.state = State(self.version)
 				self.init_level()
 				self.message = "New game!"
@@ -760,8 +761,8 @@ class Game:
 			os.rename(game.save_path + game.save_file, game.save_path + game.save_file + '.' + str(self.state.version))
 			self.state = State(self.version)
 
-	def save(self):
-		with open(game.save_path + game.save_file, 'wb') as f:
+	def save(self, suffix=''):
+		with open(game.save_path + game.save_file + suffix, 'wb') as f:
 			pickle.dump(self.state, f)
 
 PERKS = [
