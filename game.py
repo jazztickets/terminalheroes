@@ -169,7 +169,7 @@ class Game:
 		self.rebirth_values = [ 1.0, 0.05 ]
 		self.evolve_values = [ 10.0, 1.0 ]
 		self.cursor = 0
-		self.message = ""
+		self.set_message("")
 
 		if sys.platform.startswith("win"):
 			self.save_path = os.getenv("APPDATA") + "\\terminalheroes\\"
@@ -240,18 +240,18 @@ class Game:
 				self.save('.' + str(round(time.time()*1000)))
 				self.state = State(self.version)
 				self.init_level()
-				self.message = "New game!"
+				self.set_message("New game!")
 			elif c == ord('r'):
 				if 'can_rebirth' in self.state.perks:
 					self.mode = MODE_REBIRTH
-					self.message = "[r] Cancel"
+					self.set_message("")
 			elif c == ord('e'):
 				if 'can_evolve' in self.state.perks:
 					self.mode = MODE_EVOLVE
-					self.message = "[e] Cancel"
+					self.set_message("")
 			elif c == ord('s'):
 				self.mode = MODE_SHOP
-				self.message = "[j] Down [k] Up [b] Buy [s] Cancel"
+				self.set_message("[j] Down [k] Up [b] Buy [s] Cancel")
 			elif c == ord('u') or c == ord('1'):
 				if self.buy_upgrade(self.state.damage, self.state.damage_increase.value) == False:
 					self.penalize()
@@ -272,7 +272,7 @@ class Game:
 			confirm = False
 			if c == ord('r') or escape:
 				self.mode = MODE_PLAY
-				self.message = ""
+				self.set_message("")
 			elif c == ord('1'):
 				self.buy_rebirth('1')
 			elif c == ord('2'):
@@ -283,7 +283,7 @@ class Game:
 			confirm = False
 			if c == ord('e') or escape:
 				self.mode = MODE_PLAY
-				self.message = ""
+				self.set_message("")
 			elif c == ord('1'):
 				self.buy_evolve('1')
 			elif c == ord('2'):
@@ -293,7 +293,7 @@ class Game:
 		elif self.mode == MODE_SHOP:
 			if c == ord('s') or escape:
 				self.mode = MODE_PLAY
-				self.message = ""
+				self.set_message("")
 				self.cursor = 0
 			elif c == 10 or c == ord('b'):
 				self.buy_perk(self.cursor)
@@ -309,13 +309,13 @@ class Game:
 			build = self.get_build(self.mode_build)
 			if escape:
 				self.mode = self.mode_previous
-				self.message = ""
+				self.set_message("")
 				self.cursor = 0
 				self.state.builds[self.mode_build] = self.old_sequence
 				return
 			elif c == 10:
 				self.mode = self.mode_previous
-				self.message = ""
+				self.set_message("")
 				self.cursor = 0
 			elif c == ord('x') or c == 127:
 				if len(build) > 0:
@@ -339,7 +339,7 @@ class Game:
 			self.state.builds[self.mode_build] = build[:max_sequences]
 
 		if 0 and c != -1:
-			self.message = "Command: " + str(curses.keyname(c)) + " " + str(c)
+			self.set_message("Command: " + str(curses.keyname(c)) + " " + str(c))
 
 	def start(self):
 		self.state = State(self.version)
@@ -363,11 +363,13 @@ class Game:
 
 		self.mode_previous = self.mode
 		self.mode = MODE_SEQUENCE
+		message = ""
 		if build == 'upgrade':
-			self.message = "[u][i][o]"
+			message = "[u][i][o]"
 		elif build == 'rebirth':
-			self.message = "[1][2]"
-		self.message += " Append Sequence [x] Erase [Enter] Confirm [Esc] Cancel"
+			message = "[1][2]"
+		message += " Append Sequence [x] Erase [Enter] Confirm [Esc] Cancel"
+		self.set_message(message)
 		self.mode_build = build
 		self.old_sequence = self.get_build(self.mode_build)
 
@@ -378,15 +380,19 @@ class Game:
 			if gold_lost > 0:
 				self.state.total['gold_lost'] += gold_lost
 				self.state.gold -= gold_lost
-				self.message = "PENALIZED! YOU LOST " + str(gold_lost) + " GOLD!"
+				self.set_message("PENALIZED! YOU LOST " + str(gold_lost) + " GOLD!", curses.color_pair(2))
 		else:
-			self.message = "PENALTIES LEFT: " + str(PENALTIES_ALLOWED - self.penalties)
+			self.set_message("PENALTIES LEFT: " + str(PENALTIES_ALLOWED - self.penalties), curses.color_pair(2))
+
+	def set_message(self, message, style=curses.A_NORMAL):
+		self.message = message
+		self.message_style = style
 
 	def draw_message(self):
 		self.win_message.erase()
 
 		try:
-			self.win_message.addstr(0, 0, self.message[:self.max_x])
+			self.win_message.addstr(0, 0, self.message[:self.max_x], self.message_style)
 		except:
 			pass
 
@@ -683,7 +689,7 @@ class Game:
 		if rank < perk.ranks and self.can_buy_perk(rank, index):
 			self.state.perks[perk.name] = next_rank
 			self.state.gold -= self.get_perk_cost(rank, index)
-			self.message = "Bought " + perk.name
+			self.set_message("Bought " + perk.name)
 			if perk.name == "reduce_upgrade_price":
 				self.state.cost['upgrade'].multiplier = 1.0 - next_rank * 0.05
 
@@ -782,7 +788,7 @@ class Game:
 	def update_reward(self):
 		total_reward = self.get_reward(self.state.gold_multiplier)
 
-		self.message = "You earned " + str(total_reward) + " gold!"
+		self.set_message("You earned " + str(total_reward) + " gold!")
 		self.state.gold += total_reward
 		self.state.total['gold'] += total_reward
 		self.state.since['gold'] += total_reward
