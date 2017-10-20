@@ -277,7 +277,8 @@ class Game:
 			elif c == ord('3'):
 				self.mode = MODE_SEQUENCE
 				self.message = "[u][i][o] Append Sequence [x] Erase [Enter] Confirm [Esc] Cancel"
-				self.old_sequence = self.get_build('upgrade')
+				self.mode_build = 'upgrade'
+				self.old_sequence = self.get_build(self.mode_build)
 
 			if confirm:
 				self.state.rebirth.buy(1)
@@ -321,7 +322,6 @@ class Game:
 				self.save()
 				self.mode = MODE_PLAY
 		elif self.mode == MODE_SHOP:
-
 			if c == ord('s') or escape:
 				self.mode = MODE_PLAY
 				self.message = ""
@@ -337,12 +337,12 @@ class Game:
 				if self.cursor < 0:
 					self.cursor = 0
 		elif self.mode == MODE_SEQUENCE:
-			build = self.get_build('upgrade')
+			build = self.get_build(self.mode_build)
 			if escape:
 				self.mode = MODE_REBIRTH
 				self.message = ""
 				self.cursor = 0
-				self.state.builds['upgrade'] = self.old_sequence
+				self.state.builds[self.mode_build] = self.old_sequence
 				return
 			elif c == 10:
 				self.mode = MODE_REBIRTH
@@ -360,7 +360,7 @@ class Game:
 
 			rank = self.state.perks['auto_upgrade']
 			max_sequences = rank * SEQUENCE_INCREMENT
-			self.state.builds['upgrade'] = build[:max_sequences]
+			self.state.builds[self.mode_build] = build[:max_sequences]
 
 		if 0 and c != -1:
 			self.message = "Command: " + str(curses.keyname(c)) + " " + str(c)
