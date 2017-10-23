@@ -19,6 +19,7 @@ MODE_EVOLVE = 2
 MODE_SHOP = 3
 MODE_SEQUENCE = 4
 HEALTH_WIDTH = 20
+MAX_IDLE_TIME = 60*60*24*7
 
 def get_max_sizes(data, padding):
 	sizes = [padding] * (len(data[0])-1)
@@ -789,7 +790,9 @@ class Game:
 	def update_reward(self):
 		total_reward = self.get_reward(self.state.gold_multiplier)
 
-		self.set_message("You earned " + str(total_reward) + " gold!")
+		if not self.fast_forward:
+			self.set_message("You earned " + str(total_reward) + " gold!")
+
 		self.state.gold += total_reward
 		self.state.total['gold'] += total_reward
 		self.state.since['gold'] += total_reward
@@ -815,15 +818,33 @@ class Game:
 			command = self.get_next_sequence('rebirth')
 			bought = self.buy_rebirth(command)
 
+	def fast_forward(self, time):
+
+		# draw message
+		self.set_message("Fast forwarding for " + str(int(time)) + " seconds...")
+		self.draw_message()
+		self.win_message.noutrefresh()
+		curses.doupdate()
+
+		# simulate game
+		self.fast_forward = True
+		accumulator = time * TIME_SCALE
+		while accumulator >= self.timestep:
+			self.update(self.timestep)
+			accumulator -= self.timestep
+		self.fast_forward = False
+
+		self.set_message("")
 	def update(self, frametime):
 		self.state.total['time'] += frametime
 		self.state.since['time'] += frametime
 
 		# handle autosave
-		self.save_timer += frametime
-		if self.save_timer >= AUTOSAVE_TIME:
-			self.save_timer = 0
-			self.save()
+		if not self.fast_forward:
+			self.save_timer += frametime
+			if self.save_timer >= AUTOSAVE_TIME:
+				self.save_timer = 0
+				self.save()
 
 		# make an attack
 		period = 1.0 / self.state.attack_rate.value
@@ -840,10 +861,15 @@ class Game:
 		except:
 			return
 
-		# backup old save and create new save
+		# check save version
 		if self.state.version != self.version:
 			os.rename(game.save_path + game.save_file, game.save_path + game.save_file + '.' + str(self.state.version))
 			self.state = State(self.version)
+
+		# fast forward
+		idle_time = time.time() - self.state.time
+		if idle_time > 0:
+			self.fast_forward(min(idle_time, MAX_IDLE_TIME))
 
 	def save(self, suffix=''):
 		self.state.time = time.time()
