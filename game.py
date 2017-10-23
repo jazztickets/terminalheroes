@@ -8,7 +8,7 @@ import sys
 import pickle
 
 DEVMODE = 0
-GAME_VERSION = 12
+GAME_VERSION = 13
 TIME_SCALE = 1
 AUTOSAVE_TIME = 60
 SEQUENCE_INCREMENT = 5
@@ -136,6 +136,7 @@ class State:
 		self.health = 0
 		self.max_health = 0
 		self.attack_timer = 0
+		self.time = time.time()
 		self.calc()
 
 	# set values from base stats after rebirth/evolve
@@ -845,6 +846,7 @@ class Game:
 			self.state = State(self.version)
 
 	def save(self, suffix=''):
+		self.state.time = time.time()
 		with open(game.save_path + game.save_file + suffix, 'wb') as f:
 			pickle.dump(self.state, f)
 
