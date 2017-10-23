@@ -19,7 +19,7 @@ MODE_EVOLVE = 2
 MODE_SHOP = 3
 MODE_SEQUENCE = 4
 HEALTH_WIDTH = 20
-MAX_IDLE_TIME = 60*60*24*7
+MAX_IDLE_TIME = 60*60*24*365
 
 def get_max_sizes(data, padding):
 	sizes = [padding] * (len(data[0])-1)
@@ -828,13 +828,10 @@ class Game:
 
 		# simulate game
 		self.fast_forward = True
-		accumulator = time * TIME_SCALE
-		while accumulator >= self.timestep:
-			self.update(self.timestep)
-			accumulator -= self.timestep
+		self.update(time * TIME_SCALE)
 		self.fast_forward = False
-
 		self.set_message("")
+
 	def update(self, frametime):
 		self.state.total['time'] += frametime
 		self.state.since['time'] += frametime
