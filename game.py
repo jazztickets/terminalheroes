@@ -350,7 +350,7 @@ class Game:
 		self.load()
 		if DEVMODE > 0:
 			self.state.gold = 5000000000000000
-			self.state.level = 5000
+			self.state.level = 30000
 			self.state.rebirth.value = 100
 			self.state.evolve.value = 100
 
@@ -501,12 +501,16 @@ class Game:
 			if 'show_elapsed' in state.perks:
 				data.append([curses.A_NORMAL, 'Elapsed Time', self.get_time(state.total['time'])])
 
+			if 'show_total_upgrades' in state.perks:
+				data.append([curses.A_NORMAL, 'Total Upgrades', str(state.total['upgrade'])])
+			if 'show_total_kills' in state.perks:
+				data.append([curses.A_NORMAL, 'Total Kills', str(state.total['kill'])])
+			if 'show_total_gold' in state.perks:
+				data.append([curses.A_NORMAL, 'Total Gold', str(state.total['gold'])])
+
 			#data.append([curses.A_NORMAL, 'Time Since', self.get_time(state.since['time'])])
 			#data.append([curses.A_NORMAL, 'Upgrades Since', str(state.since['upgrade'])])
 			#data.append([curses.A_NORMAL, 'Gold Since', str(state.since['gold'])])
-			#data.append([curses.A_NORMAL, 'Total Gold', str(state.total['gold'])])
-			#data.append([curses.A_NORMAL, 'Total Upgrades', str(state.total['upgrade'])])
-			#data.append([curses.A_NORMAL, 'Total Kills', str(state.total['kill'])])
 
 			#data.append([curses.A_NORMAL, 'Highest Rebirths', str(state.highest['rebirth'])])
 			#data.append([curses.A_NORMAL, 'Highest Evolves', str(state.highest['evolve'])])
@@ -874,19 +878,22 @@ class Game:
 			pickle.dump(self.state, f)
 
 PERKS = [
-	Perk( 1,   "can_upgrade_damage_increase" , "Game is Hard I"     , "Allow Damage Increase to be upgraded"                         , 250       , 0,    0,   0,   0   ),
-	Perk( 1,   "can_upgrade_attack_rate"     , "Game is Hard II"    , "Allow Attack Rate to be upgraded"                             , 2000      , 0,    0,   0,   0   ),
-	Perk( 1,   "can_rebirth"                 , "Game is Hard III"   , "Allow Rebirthing"                                             , 20000     , 0,    0,   0,   0   ),
-	Perk( 1,   "can_evolve"                  , "Game is Hard IV"    , "Allow Evolving"                                               , 1000000   , 0,    0,   0,   0   ),
-	Perk( 1,   "show_dps"                    , "Math is Hard I"     , "Show DPS"                                                     , 20000     , 0,    1,   0,   0   ),
-	Perk( 1,   "show_dps_increase"           , "Math is Hard II"    , "Show DPS increase next to upgrades"                           , 100000    , 0,    20,  0,   0   ),
-	Perk( 1,   "show_highest_level"          , "Memory is Hard I"   , "Show Highest Level"                                           , 50000     , 1000, 0,   1,   0   ),
-	Perk( 1,   "show_highest_dps"            , "Memory is Hard II"  , "Show Highest DPS"                                             , 100000    , 2000, 5,   1,   0   ),
-	Perk( 1,   "show_elapsed"                , "Memory is Hard III" , "Show Elapsed Time"                                            , 150000    , 3000, 10,  5,   0   ),
-	Perk( 1,   "show_health_percent"         , "Reading is Hard I"  , "Show Health Percent"                                          , 500000    , 0,    1,   0,   0   ),
-	Perk( 10,  "reduce_upgrade_price"        , "Buying is Hard"     , "Reduce Upgrade Cost by 5% per Rank"                           , 1000000   , 0,    0,   10,  10  ),
-	Perk( 100, "auto_upgrade"                , "Upgrading is Hard"  , "Set an Upgrade Sequence on Rebirth"                           , 1000000   , 0,    0,   5,   2   ),
-	Perk( 100, "auto_rebirth"                , "Rebirthing is Hard" , "Set a Rebirth Sequence on Evolve"                             , 10000000  , 0,    0,   10,  2   ),
+	Perk( 1,   "can_upgrade_damage_increase" , "Game is Hard I"       , "Allow Damage Increase to be upgraded"                         , 250       , 0,      0,   0,   0   ),
+	Perk( 1,   "can_upgrade_attack_rate"     , "Game is Hard II"      , "Allow Attack Rate to be upgraded"                             , 2000      , 0,      0,   0,   0   ),
+	Perk( 1,   "can_rebirth"                 , "Game is Hard III"     , "Allow Rebirthing"                                             , 20000     , 0,      0,   0,   0   ),
+	Perk( 1,   "can_evolve"                  , "Game is Hard IV"      , "Allow Evolving"                                               , 1000000   , 0,      0,   0,   0   ),
+	Perk( 1,   "show_dps"                    , "Math is Hard I"       , "Show DPS"                                                     , 20000     , 0,      1,   0,   0   ),
+	Perk( 1,   "show_dps_increase"           , "Math is Hard II"      , "Show DPS increase next to upgrades"                           , 100000    , 0,      20,  0,   0   ),
+	Perk( 1,   "show_highest_level"          , "Memory is Hard I"     , "Show Highest Level"                                           , 50000     , 1000,   0,   1,   0   ),
+	Perk( 1,   "show_highest_dps"            , "Memory is Hard II"    , "Show Highest DPS"                                             , 100000    , 2000,   5,   1,   0   ),
+	Perk( 1,   "show_elapsed"                , "Memory is Hard III"   , "Show Elapsed Time"                                            , 150000    , 3000,   10,  5,   0   ),
+	Perk( 1,   "show_total_upgrades"         , "Counting is Hard I"   , "Show Total Upgrades"                                          , 10000000  , 10000,  0,   5,   0   ),
+	Perk( 1,   "show_total_kills"            , "Counting is Hard II"  , "Show Total Kills"                                             , 10000000  , 20000,  0,   10,  0   ),
+	Perk( 1,   "show_total_gold"             , "Counting is Hard III" , "Show Total Gold"                                              , 10000000  , 30000,  0,   15,  0   ),
+	Perk( 1,   "show_health_percent"         , "Reading is Hard I"    , "Show Health Percent"                                          , 500000    , 0,      1,   0,   0   ),
+	Perk( 10,  "reduce_upgrade_price"        , "Buying is Hard"       , "Reduce Upgrade Cost by 5% per Rank"                           , 1000000   , 0,      0,   10,  10  ),
+	Perk( 100, "auto_upgrade"                , "Upgrading is Hard"    , "Set an Upgrade Sequence on Rebirth"                           , 1000000   , 0,      0,   5,   2   ),
+	Perk( 100, "auto_rebirth"                , "Rebirthing is Hard"   , "Set a Rebirth Sequence on Evolve"                             , 10000000  , 0,      0,   10,  2   ),
 ]
 
 try:
