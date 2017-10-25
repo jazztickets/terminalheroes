@@ -794,7 +794,7 @@ class Game:
 	def update_reward(self):
 		total_reward = self.get_reward(self.state.gold_multiplier)
 
-		if not self.fast_forward:
+		if not self.fast_forward and self.mode == MODE_PLAY:
 			self.set_message("You earned " + str(total_reward) + " gold!")
 
 		self.state.gold += total_reward
