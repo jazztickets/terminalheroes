@@ -776,7 +776,6 @@ class Game:
 			return str(int(time / 86400)) + "d" + str(int(time / 3600 % 24)) + "h"
 
 	def init_level(self):
-		self.attack_timer = 0
 		self.state.max_health = int(math.pow(self.state.level, self.state.cost['health'].growth) * self.state.cost['health'].multiplier)
 		if self.state.health <= 0:
 			self.state.health = self.state.max_health
