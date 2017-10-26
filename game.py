@@ -136,7 +136,6 @@ class State:
 		self.builds = {}
 		self.health = 0
 		self.max_health = 0
-		self.attack_timer = 0
 		self.time = time.time()
 		self.calc()
 
@@ -171,6 +170,8 @@ class Game:
 		self.rebirth_values = [ 1.0, 0.05 ]
 		self.evolve_values = [ 10.0, 1.0 ]
 		self.cursor = 0
+		self.fast_forwarding = False
+		self.attack_timer = 0
 		self.set_message("")
 
 		if sys.platform.startswith("win"):
@@ -775,6 +776,7 @@ class Game:
 			return str(int(time / 86400)) + "d" + str(int(time / 3600 % 24)) + "h"
 
 	def init_level(self):
+		self.attack_timer = 0
 		self.state.max_health = int(math.pow(self.state.level, self.state.cost['health'].growth) * self.state.cost['health'].multiplier)
 		if self.state.health <= 0:
 			self.state.health = self.state.max_health
@@ -794,7 +796,7 @@ class Game:
 	def update_reward(self):
 		total_reward = self.get_reward(self.state.gold_multiplier)
 
-		if not self.fast_forward and self.mode == MODE_PLAY:
+		if not self.fast_forwarding and self.mode == MODE_PLAY:
 			self.set_message("You earned " + str(total_reward) + " gold!")
 
 		self.state.gold += total_reward
@@ -831,9 +833,9 @@ class Game:
 		curses.doupdate()
 
 		# simulate game
-		self.fast_forward = True
+		self.fast_forwarding = True
 		self.update(time * TIME_SCALE)
-		self.fast_forward = False
+		self.fast_forwarding = False
 		self.set_message("")
 
 	def update(self, frametime):
@@ -841,17 +843,16 @@ class Game:
 		self.state.since['time'] += frametime
 
 		# handle autosave
-		if not self.fast_forward:
-			self.save_timer += frametime
-			if self.save_timer >= AUTOSAVE_TIME:
-				self.save_timer = 0
-				self.save()
+		self.save_timer += frametime
+		if self.save_timer >= AUTOSAVE_TIME:
+			self.save_timer = 0
+			self.save()
 
 		# make an attack
 		period = 1.0 / self.state.attack_rate.value
-		self.state.attack_timer += frametime
-		while self.state.attack_timer >= period:
-			self.state.attack_timer -= period
+		self.attack_timer += frametime
+		while self.attack_timer >= period:
+			self.attack_timer -= period
 			self.state.health -= self.state.damage.value
 			self.update_health()
 
@@ -873,6 +874,9 @@ class Game:
 			self.fast_forward(min(idle_time, MAX_IDLE_TIME))
 
 	def save(self, suffix=''):
+		if self.fast_forwarding:
+			return
+
 		self.state.time = time.time()
 		with open(game.save_path + game.save_file + suffix, 'wb') as f:
 			pickle.dump(self.state, f)
