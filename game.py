@@ -8,7 +8,7 @@ import sys
 import pickle
 
 DEVMODE = 0
-GAME_VERSION = 13
+GAME_VERSION = 14
 TIME_SCALE = 1
 AUTOSAVE_TIME = 60
 SEQUENCE_INCREMENT = 5
@@ -18,6 +18,7 @@ MODE_REBIRTH = 1
 MODE_EVOLVE = 2
 MODE_SHOP = 3
 MODE_SEQUENCE = 4
+MODE_TRANSFORM = 5
 HEALTH_WIDTH = 20
 MAX_IDLE_TIME = 60*60*24*365
 
@@ -85,6 +86,7 @@ class State:
 			'upgrade'   : Cost(1.2, 1),
 			'rebirth'   : Cost(1.1, 1),
 			'evolve'    : Cost(1.1, 1),
+			'transform' : Cost(1.1, 1),
 			'health'    : Cost(1.5, 1),
 		}
 
@@ -94,6 +96,7 @@ class State:
 			'level'     : 0,
 			'rebirth'   : 0,
 			'evolve'    : 0,
+			'transform' : 0,
 		}
 
 		# stats for running counts
@@ -105,6 +108,7 @@ class State:
 			'upgrade'   : 0,
 			'rebirth'   : 0,
 			'evolve'    : 0,
+			'transform' : 0,
 		}
 
 		# stats since last rebirth/evolve/reset
@@ -119,6 +123,7 @@ class State:
 			'upgrade'   : 0,
 			'rebirth'   : 0,
 			'evolve'    : 0,
+			'transform' : 0,
 		}
 
 		self.level = self.base['level']
@@ -132,6 +137,7 @@ class State:
 		self.gold_increase = Upgrade(self.base['gold_multiplier_increase'], 0, 0)
 		self.rebirth = Upgrade(0, 10000, self.cost['rebirth'].growth)
 		self.evolve = Upgrade(0, 10, self.cost['evolve'].growth)
+		self.transform = Upgrade(0, 10, self.cost['transform'].growth)
 		self.perks = {}
 		self.builds = {}
 		self.health = 0
@@ -143,16 +149,18 @@ class State:
 	def calc(self):
 		self.damage.value = self.base['damage']
 		self.damage_increase.value = self.base['damage_increase']
+		self.damage_increase_amount.value = self.base['damage_increase_amount']
 		self.attack_rate.value = self.base['attack_rate']
+		self.attack_rate_increase.value = self.base['attack_rate_increase']
 
 	# copy values after reset
 	def copy(self, existing):
-		self.base = existing.base
 		self.cost = existing.cost
 		self.perks = existing.perks
 		self.highest = existing.highest
 		self.total = existing.total
 		self.builds = existing.builds
+		self.sequence = existing.sequence
 
 class Game:
 
@@ -169,6 +177,7 @@ class Game:
 		self.mode = MODE_PLAY
 		self.rebirth_values = [ 1.0, 0.05 ]
 		self.evolve_values = [ 10.0, 1.0 ]
+		self.transform_values = [ 10.0, 1.0 ]
 		self.cursor = 0
 		self.fast_forwarding = False
 		self.attack_timer = 0
@@ -252,6 +261,10 @@ class Game:
 				if 'can_evolve' in self.state.perks:
 					self.mode = MODE_EVOLVE
 					self.set_message("")
+			elif c == ord('t'):
+				if 'can_transform' in self.state.perks:
+					self.mode = MODE_TRANSFORM
+					self.set_message("")
 			elif c == ord('s'):
 				self.mode = MODE_SHOP
 				self.set_message("[j] Down [k] Up [b] Buy [s] Cancel")
@@ -293,6 +306,17 @@ class Game:
 				self.buy_evolve('2')
 			elif c == ord('3'):
 				self.set_sequence_mode('rebirth')
+		elif self.mode == MODE_TRANSFORM:
+			confirm = False
+			if c == ord('t') or escape:
+				self.mode = MODE_PLAY
+				self.set_message("")
+			elif c == ord('1'):
+				self.buy_transform('1')
+			elif c == ord('2'):
+				self.buy_transform('2')
+			elif c == ord('3'):
+				self.set_sequence_mode('evolve')
 		elif self.mode == MODE_SHOP:
 			if c == ord('s') or escape:
 				self.mode = MODE_PLAY
@@ -331,7 +355,7 @@ class Game:
 					build += 'i'
 				elif c == ord('o'):
 					build += 'o'
-			elif self.mode_build == 'rebirth':
+			elif self.mode_build == 'rebirth' or self.mode_build == 'evolve':
 				if c == ord('1'):
 					build += '1'
 				elif c == ord('2'):
@@ -354,6 +378,7 @@ class Game:
 			self.state.level = 30000
 			self.state.rebirth.value = 100
 			self.state.evolve.value = 100
+			self.state.transform.value = 0
 
 		curses.doupdate()
 
@@ -370,6 +395,8 @@ class Game:
 		if build == 'upgrade':
 			message = "[u][i][o]"
 		elif build == 'rebirth':
+			message = "[1][2]"
+		elif build == 'evolve':
 			message = "[1][2]"
 		message += " Append Sequence [x] Erase [Enter] Confirm [Esc] Cancel"
 		self.set_message(message)
@@ -431,6 +458,7 @@ class Game:
 			gold_multiplier = round(state.gold_multiplier, 2)
 			rebirths = state.rebirth.value
 			evolves = state.evolve.value
+			transforms = state.transform.value
 			damage = round(state.damage.value, 2)
 			damage_increase = round(state.damage_increase.value, 2)
 			damage_increase_amount = round(state.damage_increase_amount.value, 2)
@@ -447,6 +475,9 @@ class Game:
 			if 'auto_rebirth' in state.perks:
 				auto_rebirth_max = self.state.perks['auto_rebirth'] * SEQUENCE_INCREMENT
 				auto_rebirth_current = self.state.sequence['rebirth']
+			if 'auto_evolve' in state.perks:
+				auto_evolve_max = self.state.perks['auto_evolve'] * SEQUENCE_INCREMENT
+				auto_evolve_current = self.state.sequence['evolve']
 
 			# determine dps increase data
 			dps_increase_header = ""
@@ -470,6 +501,8 @@ class Game:
 				data.append([colors[state.gold >= state.rebirth.cost], '[r]', 'Rebirths', '', str(rebirths), str(1), '', str(state.rebirth.cost) + 'g'])
 			if 'can_evolve' in state.perks:
 				data.append([colors[state.rebirth.value >= state.evolve.cost], '[e]', 'Evolves', '', str(evolves), str(1), '', str(state.evolve.cost) + ' rebirths'])
+			if 'can_transform' in state.perks:
+				data.append([colors[state.evolve.value >= state.transform.cost], '[t]', 'Transforms', '', str(transforms), str(1), '', str(state.transform.cost) + ' evolves'])
 			data.append([colors[0], '[s]', 'Shop', '', '', '', '', ''])
 
 			sizes = get_max_sizes(data, 2)
@@ -493,6 +526,10 @@ class Game:
 				next_sequence = self.get_next_sequence('rebirth')
 				if next_sequence != "":
 					data.append([curses.A_NORMAL, 'Next Rebirth', "'" + next_sequence + "' (" + str(auto_rebirth_current) + " of " + str(auto_rebirth_max) + ")"])
+			if 'auto_evolve' in state.perks:
+				next_sequence = self.get_next_sequence('evolve')
+				if next_sequence != "":
+					data.append([curses.A_NORMAL, 'Next Evolve', "'" + next_sequence + "' (" + str(auto_evolve_current) + " of " + str(auto_evolve_max) + ")"])
 			if state.gold_multiplier != 1:
 				data.append([curses.A_NORMAL, 'Gold Multiplier', str(gold_multiplier)])
 			if 'show_highest_level' in state.perks:
@@ -542,9 +579,10 @@ class Game:
 			try:
 				y = 0
 				game.win_game.addstr(y, 0, "Rebirth Options", curses.A_BOLD)
+				y += 1
 
 				if self.state.gold >= self.state.rebirth.cost:
-					y += 2
+					y += 1
 					game.win_game.addstr(y, 0, "[1] Upgrade Damage Increase Amount by " + str(self.rebirth_values[0]))
 
 					y += 1
@@ -564,9 +602,10 @@ class Game:
 			try:
 				y = 0
 				game.win_game.addstr(y, 0, "Evolve Options", curses.A_BOLD)
+				y += 1
 
 				if self.state.rebirth.value >= self.state.evolve.cost:
-					y += 2
+					y += 1
 					game.win_game.addstr(y, 0, "[1] Upgrade Base Damage by " + str(self.evolve_values[0]))
 
 					y += 1
@@ -578,6 +617,29 @@ class Game:
 
 				y += 2
 				game.win_game.addstr(y, 0, "[e] Cancel")
+			except:
+				pass
+
+		elif self.mode == MODE_TRANSFORM:
+
+			try:
+				y = 0
+				game.win_game.addstr(y, 0, "Transform Options", curses.A_BOLD)
+				y += 1
+
+				if self.state.evolve.value >= self.state.transform.cost:
+					y += 1
+					game.win_game.addstr(y, 0, "[1] Upgrade Base Damage Increase by " + str(self.transform_values[0]))
+
+					y += 1
+					game.win_game.addstr(y, 0, "[2] Upgrade Base Attack Rate Increase by " + str(self.transform_values[1]))
+
+				if 'auto_evolve' in state.perks:
+					y += 1
+					game.win_game.addstr(y, 0, "[3] Set Evolve Sequence")
+
+				y += 2
+				game.win_game.addstr(y, 0, "[t] Cancel")
 			except:
 				pass
 
@@ -716,11 +778,6 @@ class Game:
 		if option == '' or self.state.gold < self.state.rebirth.cost:
 			return False
 
-		if option == '1':
-			self.state.damage_increase_amount.value += self.rebirth_values[0]
-		elif option == '2':
-			self.state.attack_rate_increase.value += self.rebirth_values[1]
-
 		self.state.rebirth.buy(1)
 		if self.state.rebirth.value > self.state.highest['rebirth']:
 			self.state.highest['rebirth'] = self.state.rebirth.value
@@ -729,10 +786,20 @@ class Game:
 		self.state.copy(old_state)
 		self.state.rebirth = old_state.rebirth
 		self.state.evolve = old_state.evolve
-		self.state.sequence['rebirth'] = old_state.sequence['rebirth'] + 1
+		self.state.sequence['upgrade'] = 0
+		self.state.sequence['rebirth'] = self.state.sequence['rebirth'] + 1
+		self.state.base['damage'] = old_state.base['damage']
+		self.state.base['damage_increase'] = old_state.base['damage_increase']
+		self.state.base['attack_rate'] = old_state.base['attack_rate']
+		self.state.base['attack_rate_increase'] = old_state.base['attack_rate_increase']
+		self.state.calc()
 		self.state.damage_increase_amount.value = old_state.damage_increase_amount.value
 		self.state.attack_rate_increase.value = old_state.attack_rate_increase.value
-		self.state.calc()
+		if option == '1':
+			self.state.damage_increase_amount.value += self.rebirth_values[0]
+		elif option == '2':
+			self.state.attack_rate_increase.value += self.rebirth_values[1]
+
 		self.init_level()
 		self.penalties = 0
 		self.save()
@@ -744,11 +811,6 @@ class Game:
 		if option == '' or self.state.rebirth.value < self.state.evolve.cost:
 			return False
 
-		if option == '1':
-			self.state.base['damage'] += self.evolve_values[0]
-		elif option == '2':
-			self.state.base['attack_rate'] += self.evolve_values[1]
-
 		self.state.evolve.buy(1)
 		if self.state.evolve.value > self.state.highest['evolve']:
 			self.state.highest['evolve'] = self.state.evolve.value
@@ -756,7 +818,45 @@ class Game:
 		self.state = State(self.version)
 		self.state.copy(old_state)
 		self.state.evolve = old_state.evolve
-		self.state.sequence['evolve'] = old_state.sequence['evolve'] + 1
+		self.state.sequence['upgrade'] = 0
+		self.state.sequence['rebirth'] = 0
+		self.state.sequence['evolve'] = self.state.sequence['evolve'] + 1
+		self.state.base['damage'] = old_state.base['damage']
+		self.state.base['damage_increase'] = old_state.base['damage_increase']
+		self.state.base['attack_rate'] = old_state.base['attack_rate']
+		self.state.base['attack_rate_increase'] = old_state.base['attack_rate_increase']
+		if option == '1':
+			self.state.base['damage'] += self.evolve_values[0]
+		elif option == '2':
+			self.state.base['attack_rate'] += self.evolve_values[1]
+
+		self.state.calc()
+		self.penalties = 0
+		self.init_level()
+		self.save()
+		self.mode = MODE_PLAY
+
+		return True
+
+	def buy_transform(self, option):
+		if option == '' or self.state.evolve.value < self.state.transform.cost:
+			return False
+
+		if option == '1':
+			self.state.base['damage_increase'] += self.transform_values[0]
+		elif option == '2':
+			self.state.base['attack_rate_increase'] += self.transform_values[1]
+
+		self.state.transform.buy(1)
+		if self.state.transform.value > self.state.highest['transform']:
+			self.state.highest['transform'] = self.state.transform.value
+		old_state = self.state
+		self.state = State(self.version)
+		self.state.copy(old_state)
+		self.state.transform = old_state.transform
+		self.state.sequence['transform'] = old_state.sequence['transform'] + 1
+		self.state.base['damage_increase'] = old_state.base['damage_increase']
+		self.state.base['attack_rate_increase'] = old_state.base['attack_rate_increase']
 		self.state.calc()
 		self.penalties = 0
 		self.init_level()
@@ -821,7 +921,11 @@ class Game:
 
 			# handle auto rebirths
 			command = self.get_next_sequence('rebirth')
-			bought = self.buy_rebirth(command)
+			self.buy_rebirth(command)
+
+			# handle auto evolve
+			command = self.get_next_sequence('evolve')
+			self.buy_evolve(command)
 
 	def fast_forward(self, time):
 
@@ -833,7 +937,7 @@ class Game:
 
 		# simulate game
 		self.fast_forwarding = True
-		self.update(time * TIME_SCALE)
+		self.update(time)
 		self.fast_forwarding = False
 		self.set_message("")
 
@@ -881,22 +985,25 @@ class Game:
 			pickle.dump(self.state, f)
 
 PERKS = [
-	Perk( 1,   "can_upgrade_damage_increase" , "Game is Hard I"       , "Allow Damage Increase to be upgraded"                         , 250       , 0,      0,   0,   0   ),
-	Perk( 1,   "can_upgrade_attack_rate"     , "Game is Hard II"      , "Allow Attack Rate to be upgraded"                             , 2000      , 0,      0,   0,   0   ),
-	Perk( 1,   "can_rebirth"                 , "Game is Hard III"     , "Allow Rebirthing"                                             , 20000     , 0,      0,   0,   0   ),
-	Perk( 1,   "can_evolve"                  , "Game is Hard IV"      , "Allow Evolving"                                               , 1000000   , 0,      0,   0,   0   ),
-	Perk( 1,   "show_dps"                    , "Math is Hard I"       , "Show DPS"                                                     , 20000     , 0,      1,   0,   0   ),
-	Perk( 1,   "show_dps_increase"           , "Math is Hard II"      , "Show DPS increase next to upgrades"                           , 100000    , 0,      20,  0,   0   ),
-	Perk( 1,   "show_highest_level"          , "Memory is Hard I"     , "Show Highest Level"                                           , 50000     , 1000,   0,   1,   0   ),
-	Perk( 1,   "show_highest_dps"            , "Memory is Hard II"    , "Show Highest DPS"                                             , 100000    , 2000,   5,   1,   0   ),
-	Perk( 1,   "show_elapsed"                , "Memory is Hard III"   , "Show Elapsed Time"                                            , 150000    , 3000,   10,  5,   0   ),
-	Perk( 1,   "show_total_upgrades"         , "Counting is Hard I"   , "Show Total Upgrades"                                          , 10000000  , 10000,  0,   5,   0   ),
-	Perk( 1,   "show_total_kills"            , "Counting is Hard II"  , "Show Total Kills"                                             , 10000000  , 20000,  0,   10,  0   ),
-	Perk( 1,   "show_total_gold"             , "Counting is Hard III" , "Show Total Gold"                                              , 10000000  , 30000,  0,   15,  0   ),
-	Perk( 1,   "show_health_percent"         , "Reading is Hard I"    , "Show Health Percent"                                          , 500000    , 0,      1,   0,   0   ),
-	Perk( 10,  "reduce_upgrade_price"        , "Buying is Hard"       , "Reduce Upgrade Cost by 5% per Rank"                           , 1000000   , 0,      0,   10,  10  ),
-	Perk( 100, "auto_upgrade"                , "Upgrading is Hard"    , "Set an Upgrade Sequence on Rebirth"                           , 1000000   , 0,      0,   5,   2   ),
-	Perk( 100, "auto_rebirth"                , "Rebirthing is Hard"   , "Set a Rebirth Sequence on Evolve"                             , 10000000  , 0,      0,   10,  2   ),
+	#     Max  Name                            Label                    Info                                                             Cost         Level   Reb  Ev   Cost Mult
+	Perk( 1,   "can_upgrade_damage_increase" , "Game is Hard I"       , "Allow Damage Increase to be upgraded"                         , 250        , 0,      0,   0,   0   ),
+	Perk( 1,   "can_upgrade_attack_rate"     , "Game is Hard II"      , "Allow Attack Rate to be upgraded"                             , 2000       , 0,      0,   0,   0   ),
+	Perk( 1,   "can_rebirth"                 , "Game is Hard III"     , "Allow Rebirthing"                                             , 20000      , 0,      0,   0,   0   ),
+	Perk( 1,   "can_evolve"                  , "Game is Hard IV"      , "Allow Evolving"                                               , 1000000    , 0,      0,   0,   0   ),
+	Perk( 1,   "can_transform"               , "Game is Hard V"       , "Allow Transforming"                                           , 100000000  , 0,      0,   15,  0   ),
+	Perk( 1,   "show_dps"                    , "Math is Hard I"       , "Show DPS"                                                     , 20000      , 0,      1,   0,   0   ),
+	Perk( 1,   "show_dps_increase"           , "Math is Hard II"      , "Show DPS increase next to upgrades"                           , 100000     , 0,      20,  0,   0   ),
+	Perk( 1,   "show_highest_level"          , "Memory is Hard I"     , "Show Highest Level"                                           , 50000      , 1000,   0,   1,   0   ),
+	Perk( 1,   "show_highest_dps"            , "Memory is Hard II"    , "Show Highest DPS"                                             , 100000     , 2000,   5,   1,   0   ),
+	Perk( 1,   "show_elapsed"                , "Memory is Hard III"   , "Show Elapsed Time"                                            , 150000     , 3000,   10,  5,   0   ),
+	Perk( 1,   "show_total_upgrades"         , "Counting is Hard I"   , "Show Total Upgrades"                                          , 10000000   , 10000,  0,   5,   0   ),
+	Perk( 1,   "show_total_kills"            , "Counting is Hard II"  , "Show Total Kills"                                             , 10000000   , 20000,  0,   10,  0   ),
+	Perk( 1,   "show_total_gold"             , "Counting is Hard III" , "Show Total Gold"                                              , 10000000   , 30000,  0,   15,  0   ),
+	Perk( 1,   "show_health_percent"         , "Reading is Hard I"    , "Show Health Percent"                                          , 500000     , 0,      1,   0,   0   ),
+	Perk( 10,  "reduce_upgrade_price"        , "Buying is Hard"       , "Reduce Upgrade Cost by 5% per Rank"                           , 1000000    , 0,      0,   10,  10  ),
+	Perk( 100, "auto_upgrade"                , "Upgrading is Hard"    , "Set an Upgrade Sequence on Rebirth"                           , 1000000    , 0,      0,   5,   2   ),
+	Perk( 100, "auto_rebirth"                , "Rebirthing is Hard"   , "Set a Rebirth Sequence on Evolve"                             , 10000000   , 0,      0,   10,  2   ),
+	Perk( 100, "auto_evolve"                 , "Evolving is Hard"     , "Set an Evolve Sequence on Transform"                          , 100000000  , 0,      0,   20,  2   ),
 ]
 
 try:
