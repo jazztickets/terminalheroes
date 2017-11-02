@@ -786,6 +786,7 @@ class Game:
 		self.state.copy(old_state)
 		self.state.rebirth = old_state.rebirth
 		self.state.evolve = old_state.evolve
+		self.state.transform = old_state.transform
 		self.state.sequence['upgrade'] = 0
 		self.state.sequence['rebirth'] = self.state.sequence['rebirth'] + 1
 		self.state.base['damage'] = old_state.base['damage']
@@ -818,6 +819,7 @@ class Game:
 		self.state = State(self.version)
 		self.state.copy(old_state)
 		self.state.evolve = old_state.evolve
+		self.state.transform = old_state.transform
 		self.state.sequence['upgrade'] = 0
 		self.state.sequence['rebirth'] = 0
 		self.state.sequence['evolve'] = self.state.sequence['evolve'] + 1
