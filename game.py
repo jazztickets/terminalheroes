@@ -854,6 +854,9 @@ class Game:
 		self.state = State(self.version)
 		self.state.copy(old_state)
 		self.state.transform = old_state.transform
+		self.state.sequence['upgrade'] = 0
+		self.state.sequence['rebirth'] = 0
+		self.state.sequence['evolve'] = 0
 		self.state.sequence['transform'] = old_state.sequence['transform'] + 1
 		self.state.base['damage_increase'] = old_state.base['damage_increase']
 		self.state.base['attack_rate_increase'] = old_state.base['attack_rate_increase']
