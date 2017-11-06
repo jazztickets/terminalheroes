@@ -887,16 +887,17 @@ class Game:
 
 	def update_health(self):
 		if self.state.health <= 0:
-			self.update_reward()
-			self.state.level += 1
-			if self.state.level > self.state.highest['level']:
-				self.state.highest['level'] = self.state.level
+			if self.update_reward():
+				self.state.level += 1
+				if self.state.level > self.state.highest['level']:
+					self.state.highest['level'] = self.state.level
 
-			self.init_level()
+				self.init_level()
 
 	def get_reward(self, multiplier):
 		return int(self.state.level * multiplier)
 
+	# return true if not restarting
 	def update_reward(self):
 		total_reward = self.get_reward(self.state.gold_multiplier)
 
@@ -926,11 +927,16 @@ class Game:
 
 			# handle auto rebirths
 			command = self.get_next_sequence('rebirth')
-			self.buy_rebirth(command)
+			bought_rebirth = self.buy_rebirth(command)
 
 			# handle auto evolve
 			command = self.get_next_sequence('evolve')
-			self.buy_evolve(command)
+			bought_evolve = self.buy_evolve(command)
+
+			if bought_evolve or bought_rebirth:
+				return False
+
+		return True
 
 	def fast_forward(self, time):
 
@@ -963,6 +969,7 @@ class Game:
 			self.attack_timer -= period
 			self.state.health -= self.state.damage.value
 			self.update_health()
+			period = 1.0 / self.state.attack_rate.value
 
 	def load(self):
 		try:
