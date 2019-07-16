@@ -6,6 +6,7 @@ import math
 import random
 import sys
 import pickle
+import signal
 
 DEVMODE = 0
 GAME_VERSION = 14
@@ -21,6 +22,10 @@ MODE_SEQUENCE = 4
 MODE_TRANSFORM = 5
 HEALTH_WIDTH = 20
 MAX_IDLE_TIME = 60*60*24*365
+
+def signal_handler(signal, frame):
+	curses.endwin()
+	sys.exit(1)
 
 def get_max_sizes(data, padding):
 	sizes = [padding] * (len(data[0])-1)
@@ -1017,6 +1022,8 @@ PERKS = [
 	Perk( 100, "auto_rebirth"                , "Rebirthing is Hard"   , "Set a Rebirth Sequence on Evolve"                             , 10000000   , 0,      0,   10,  2   ),
 	Perk( 100, "auto_evolve"                 , "Evolving is Hard"     , "Set an Evolve Sequence on Transform"                          , 100000000  , 0,      0,   20,  2   ),
 ]
+
+signal.signal(signal.SIGINT, signal_handler)
 
 try:
 	game = Game()
